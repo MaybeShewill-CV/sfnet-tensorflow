@@ -10,7 +10,7 @@ Resnet local_utils
 """
 import tensorflow as tf
 
-from dual_attention_model import cnn_basenet
+from sfnet_model import cnn_basenet
 
 
 class ResnetBase(cnn_basenet.CNNBaseModel):

@@ -247,12 +247,13 @@ class CNNBaseModel(object):
                               data_format=data_format, name=name)
 
     @staticmethod
-    def globalavgpooling(inputdata, data_format='NHWC', name=None):
+    def globalavgpooling(inputdata, data_format='NHWC', keepdims=False, name=None):
         """
 
         :param name:
         :param inputdata:
         :param data_format:
+        :param keepdims:
         :return:
         """
         assert inputdata.shape.ndims == 4
@@ -260,7 +261,7 @@ class CNNBaseModel(object):
 
         axis = [1, 2] if data_format == 'NHWC' else [2, 3]
 
-        return tf.reduce_mean(input_tensor=inputdata, axis=axis, name=name)
+        return tf.reduce_mean(input_tensor=inputdata, axis=axis, name=name, keepdims=keepdims)
 
     @staticmethod
     def layernorm(inputdata, epsilon=1e-5, use_bias=True, use_scale=True,
