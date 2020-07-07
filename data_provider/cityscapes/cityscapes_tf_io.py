@@ -8,17 +8,19 @@
 """
 Cityscapes tensorflow dataset io module
 """
+import collections
 import os
 import os.path as ops
-import collections
-import six
+import time
 
-import tensorflow as tf
-import numpy as np
 import loguru
+import matplotlib.pyplot as plt
+import numpy as np
+import six
+import tensorflow as tf
 
-from local_utils.config_utils import parse_config_utils
 from local_utils.augment_utils.cityscapes import augmentation_tf_utils as aug
+from local_utils.config_utils import parse_config_utils
 
 CFG = parse_config_utils.CITYSCAPES_CFG
 LOG = loguru.logger
@@ -342,22 +344,7 @@ class CityScapesTfIO(object):
         return self._val_dataset_reader
 
 
-def main():
-    """
-
-    Returns
-    -------
-    [type]
-        [description]
-    """
-
-
-if __name__ == '__main__':
-    """
-    test code
-    """
-
-    def decode_inference_prediction(mask):
+def decode_inference_prediction(mask):
         """
         Decode batch of segmentation masks.
         :param mask: result of inference after taking argmax.
@@ -383,9 +370,15 @@ if __name__ == '__main__':
 
         return color_mask
 
-    import matplotlib.pyplot as plt
-    import time
 
+def main():
+    """
+
+    Returns
+    -------
+    [type]
+        [description]
+    """
     io = CityScapesTfIO()
     src_images, label_images = io.val_dataset_reader.next_batch(batch_size=4)
     relu_ret = tf.nn.relu(src_images)
@@ -410,3 +403,13 @@ if __name__ == '__main__':
                 plt.show()
             except tf.errors.OutOfRangeError as err:
                 print(err)
+
+
+
+if __name__ == '__main__':
+    main()
+
+
+
+
+
