@@ -10,10 +10,10 @@ Resnet for image classification
 """
 import tensorflow as tf
 
-from dual_attention_model import resnet_utils
-from config import ilsvrc_2012_global_config
+from sfnet_model import resnet_utils
+from local_utils.config_utils import parse_config_utils
 
-CFG = ilsvrc_2012_global_config.cfg
+CFG = parse_config_utils.CITYSCAPES_CFG
 
 
 class ResNet(resnet_utils.ResnetBase):
@@ -215,7 +215,9 @@ class ResNet(resnet_utils.ResnetBase):
         return total_loss
 
 
-if __name__ == '__main__':
+def main():
+    """test code
+    """
     image_tensor = tf.placeholder(shape=[4, 224, 224, 3], dtype=tf.float32)
 
     net = ResNet(phase='train', net_size=101)
@@ -228,3 +230,7 @@ if __name__ == '__main__':
 
     for vv in tf.trainable_variables():
         print(vv.name)
+
+
+if __name__ == '__main__':
+    main()

@@ -46,13 +46,13 @@ class Config(dict):
             self.__dict__[key] = value
             return
 
-        t = self
+        t_self = self
         keylist = key.split(".")
         for k in keylist[:-1]:
-            t = t.__getattr__(k, create_if_not_exist)
+            t_self = t_self.__getattr__(k, create_if_not_exist)
 
-        t.__getattr__(keylist[-1], create_if_not_exist)
-        t[keylist[-1]] = value
+        t_self.__getattr__(keylist[-1], create_if_not_exist)
+        t_self[keylist[-1]] = value
 
     def __getattr__(self, key, create_if_not_exist=True):
         """
@@ -103,8 +103,8 @@ class Config(dict):
         if not os.access(config_file_path, os.R_OK):
             raise OSError(
                 'Config file: {:s}, can not be read'.format(config_file_path))
-        with open(config_file_path, 'r') as f:
-            config_content = yaml.safe_load(f)
+        with open(config_file_path, 'r') as file:
+            config_content = yaml.safe_load(file)
 
         return config_content
 
@@ -227,7 +227,7 @@ class Config(dict):
 
     def dump_to_json_file(self, f_obj):
         """
-
+CITYSCAPES_CFG
         :param f_obj:
         :return:
         """
@@ -244,16 +244,3 @@ class Config(dict):
 
 CITYSCAPES_CFG = Config(
     config_path='./config/cityscapes/cityscapes_sfnet.yaml')
-
-
-if __name__ == '__main__':
-    """
-    test
-    """
-    train_epoch_nums = CITYSCAPES_CFG.TRAIN.EPOCH_NUMS
-    batch_size = CITYSCAPES_CFG.TRAIN.BATCH_SIZE
-    model_save_dir = CITYSCAPES_CFG.TRAIN.MODEL_SAVE_DIR
-    snapshot_epoch = CITYSCAPES_CFG.TRAIN.SNAPSHOT_EPOCH
-    enable_miou = CITYSCAPES_CFG.TRAIN.COMPUTE_MIOU.ENABLE
-    with open('./test_config_file.json', 'w', encoding='utf-8') as file:
-        CITYSCAPES_CFG.dump_to_json_file(file)
