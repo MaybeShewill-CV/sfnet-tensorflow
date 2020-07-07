@@ -345,30 +345,30 @@ class CityScapesTfIO(object):
 
 
 def decode_inference_prediction(mask):
-        """
-        Decode batch of segmentation masks.
-        :param mask: result of inference after taking argmax.
-        :return:  A batch with num_images RGB images of the same size as the input.
-        """
-        if len(mask.shape) == 3:
-            mask = np.squeeze(mask, axis=-1)
-        unique_value = np.unique(mask)
-        print(unique_value)
-        color_mask = np.zeros(
-            shape=[mask.shape[0], mask.shape[1], 3], dtype=np.uint8)
-        for index, value in enumerate(unique_value):
-            if value == 0:
-                continue
-            if value == 255:
-                continue
-            idx = np.where(mask == value)
-            try:
-                color_mask[idx] = LABEL_CONTOURS[value]
-            except IndexError as err:
-                print(err)
-                print(value)
+    """
+    Decode batch of segmentation masks.
+    :param mask: result of inference after taking argmax.
+    :return:  A batch with num_images RGB images of the same size as the input.
+    """
+    if len(mask.shape) == 3:
+        mask = np.squeeze(mask, axis=-1)
+    unique_value = np.unique(mask)
+    print(unique_value)
+    color_mask = np.zeros(
+        shape=[mask.shape[0], mask.shape[1], 3], dtype=np.uint8)
+    for index, value in enumerate(unique_value):
+        if value == 0:
+            continue
+        if value == 255:
+            continue
+        idx = np.where(mask == value)
+        try:
+            color_mask[idx] = LABEL_CONTOURS[value]
+        except IndexError as err:
+            print(err)
+            print(value)
 
-        return color_mask
+    return color_mask
 
 
 def main():
