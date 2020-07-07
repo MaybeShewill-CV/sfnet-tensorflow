@@ -1,0 +1,13 @@
+{
+    "python.pythonPath": "/usr/bin/python",
+    "python.disableInstallationCheck": false,
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": true,
+    "python.linting.pylintArgs": [
+        "--max-line-length=120",
+        "--disable=W0402,R0201,C0304,C0103",
+        "--generate-members"
+    ],
+    "autoDocstring.docstringFormat": "numpy",
+    "editor.fontSize": 16,
+}
