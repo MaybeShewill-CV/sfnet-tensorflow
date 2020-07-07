@@ -11,6 +11,8 @@ The base convolution neural networks mainly implement some useful cnn functions
 import tensorflow as tf
 import numpy as np
 
+TF_VERSION = tf.__version__
+
 
 class CNNBaseModel(object):
     """
@@ -63,12 +65,18 @@ class CNNBaseModel(object):
                     else [1, 1, stride, stride]
 
             if w_init is None:
-                w_init = tf.contrib.layers.variance_scaling_initializer()
+                if TF_VERSION == '1.15.0':
+                    w_init = tf.variance_scaling_initializer()
+                else:
+                    w_init = tf.contrib.layers.variance_scaling_initializer()
                 # w_init = initializers.xavier_initializer()
             if b_init is None:
                 b_init = tf.constant_initializer()
-
-            w = tf.get_variable('W', filter_shape, initializer=w_init)
+            
+            if TF_VERSION == '1.15.0':
+                w = tf.compat.v1.get_variable('W', filter_shape, initializer=w_init)
+            else:
+                w = tf.get_variable('W', filter_shape, initializer=w_init)
             b = None
 
             if use_bias:
@@ -110,7 +118,10 @@ class CNNBaseModel(object):
 
             depthwise_filter_shape = [kernel_size, kernel_size] + [in_channel, depth_multiplier]
             pointwise_filter_shape = [1, 1, in_channel * depth_multiplier, output_channels]
-            w_init = tf.contrib.layers.variance_scaling_initializer()
+            if TF_VERSION == '1.15.0':
+                w_init = tf.variance_scaling_initializer()
+            else:
+                w_init = tf.contrib.layers.variance_scaling_initializer()
 
             depthwise_filter = tf.get_variable(
                 name='depthwise_filter_w', shape=depthwise_filter_shape,
@@ -151,7 +162,10 @@ class CNNBaseModel(object):
             padding = padding.upper()
 
             depthwise_filter_shape = [kernel_size, kernel_size] + [in_channel, depth_multiplier]
-            w_init = tf.contrib.layers.variance_scaling_initializer()
+            if TF_VERSION == '1.15.0':
+                w_init = tf.variance_scaling_initializer()
+            else:
+                w_init = tf.contrib.layers.variance_scaling_initializer()
 
             depthwise_filter = tf.get_variable(
                 name='depthwise_filter_w', shape=depthwise_filter_shape,
@@ -219,8 +233,16 @@ class CNNBaseModel(object):
             strides = [1, stride, stride, 1] if data_format == 'NHWC' \
                 else [1, 1, stride, stride]
 
-        return tf.nn.max_pool(value=inputdata, ksize=kernel, strides=strides, padding=padding,
-                              data_format=data_format, name=name)
+        if TF_VERSION == '1.15.0':
+            return tf.nn.max_pool2d(
+                input=inputdata, ksize=kernel, strides=strides, padding=padding,
+                data_format=data_format, name=name
+                )
+        else:
+            return tf.nn.max_pool(
+                value=inputdata, ksize=kernel, strides=strides, padding=padding,
+                data_format=data_format, name=name
+                )
 
     @staticmethod
     def avgpooling(inputdata, kernel_size, stride=None, padding='VALID',
@@ -382,7 +404,10 @@ class CNNBaseModel(object):
             inputdata = tf.reshape(inputdata, tf.stack([tf.shape(inputdata)[0], -1]))
 
         if w_init is None:
-            w_init = tf.contrib.layers.variance_scaling_initializer()
+            if TF_VERSION == '1.15.0':
+                w_init = tf.variance_scaling_initializer()
+            else:
+                w_init = tf.contrib.layers.variance_scaling_initializer()
         if b_init is None:
             b_init = tf.constant_initializer()
 
@@ -554,7 +579,10 @@ class CNNBaseModel(object):
             padding = padding.upper()
 
             if w_init is None:
-                w_init = tf.contrib.layers.variance_scaling_initializer()
+                if TF_VERSION == '1.15.0':
+                    w_init = tf.variance_scaling_initializer()
+                else:
+                    w_init = tf.contrib.layers.variance_scaling_initializer()
             if b_init is None:
                 b_init = tf.constant_initializer()
 
@@ -597,7 +625,10 @@ class CNNBaseModel(object):
                 filter_shape = [k_size, k_size] + [in_channel, out_dims]
 
             if w_init is None:
-                w_init = tf.contrib.layers.variance_scaling_initializer()
+                if TF_VERSION == '1.15.0':
+                    w_init = tf.variance_scaling_initializer()
+                else:
+                    w_init = tf.contrib.layers.variance_scaling_initializer()
             if b_init is None:
                 b_init = tf.constant_initializer()
 
@@ -694,3 +725,17 @@ class CNNBaseModel(object):
             loss = 1. - tf.reduce_sum(score)
             loss = tf.identity(loss, name='dice_loss')
         return loss
+
+    @staticmethod
+    def pad(inputdata, paddings, name):
+        """
+        :param inputdata:
+        :param paddings:
+        :return:
+        """
+        if TF_VERSION == '1.15.0':
+            with tf.compat.v1.variable_scope(name_or_scope=name):
+                return tf.pad(tensor=inputdata, paddings=paddings)
+        else:
+            with tf.variable_scope(name_or_scope=name):
+                return tf.pad(tensor=inputdata, paddings=paddings)

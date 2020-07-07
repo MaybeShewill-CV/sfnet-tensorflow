@@ -46,17 +46,28 @@ class ResnetBase(cnn_basenet.CNNBaseModel):
         :return: A tensor with the same format as the input with the data either intact
           (if kernel_size == 1) or padded (if kernel_size > 1).
         """
-        with tf.variable_scope(name_or_scope=name):
-            pad_total = kernel_size - 1
-            pad_beg = pad_total // 2
-            pad_end = pad_total - pad_beg
+        if tf.__version__ == '1.15.0':
+            with tf.compat.v1.variable_scope(name_or_scope=name):
+                pad_total = kernel_size - 1
+                pad_beg = pad_total // 2
+                pad_end = pad_total - pad_beg
 
-            padded_inputs = self.pad(
-                inputdata=inputs,
-                paddings=[[0, 0], [pad_beg, pad_end],
-                          [pad_beg, pad_end], [0, 0]],
-                name='pad')
+                padded_inputs = self.pad(
+                    inputdata=inputs,
+                    paddings=[[0, 0], [pad_beg, pad_end],
+                            [pad_beg, pad_end], [0, 0]],
+                    name='pad')
+        else:
+            with tf.variable_scope(name_or_scope=name):
+                pad_total = kernel_size - 1
+                pad_beg = pad_total // 2
+                pad_end = pad_total - pad_beg
 
+                padded_inputs = self.pad(
+                    inputdata=inputs,
+                    paddings=[[0, 0], [pad_beg, pad_end],
+                            [pad_beg, pad_end], [0, 0]],
+                    name='pad')
         return padded_inputs
 
     def _conv2d_fixed_padding(self, inputs, kernel_size, output_dims, strides, name):
@@ -69,20 +80,34 @@ class ResnetBase(cnn_basenet.CNNBaseModel):
         :param name: layer name
         :return:
         """
-        with tf.variable_scope(name_or_scope=name):
-            if strides > 1:
-                inputs = self._fixed_padding(inputs, kernel_size, name='fix_padding')
+        if tf.__version__ == '1.15.0':
+            with tf.compat.v1.variable_scope(name_or_scope=name):
+                if strides > 1:
+                    inputs = self._fixed_padding(inputs, kernel_size, name='fix_padding')
 
-            result = self.conv2d(
-                inputdata=inputs,
-                out_channel=output_dims,
-                kernel_size=kernel_size,
-                stride=strides,
-                padding=('SAME' if strides == 1 else 'VALID'),
-                use_bias=False,
-                name='conv'
-            )
+                result = self.conv2d(
+                    inputdata=inputs,
+                    out_channel=output_dims,
+                    kernel_size=kernel_size,
+                    stride=strides,
+                    padding=('SAME' if strides == 1 else 'VALID'),
+                    use_bias=False,
+                    name='conv'
+                )
+        else:
+            with tf.variable_scope(name_or_scope=name):
+                if strides > 1:
+                    inputs = self._fixed_padding(inputs, kernel_size, name='fix_padding')
 
+                result = self.conv2d(
+                    inputdata=inputs,
+                    out_channel=output_dims,
+                    kernel_size=kernel_size,
+                    stride=strides,
+                    padding=('SAME' if strides == 1 else 'VALID'),
+                    use_bias=False,
+                    name='conv'
+                )
         return result
 
     def _dilated_conv2d_fixed_padding(self, inputs, kernel_size, output_dims, strides, dilation_rate, name):

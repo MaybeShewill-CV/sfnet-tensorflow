@@ -39,6 +39,8 @@ FREEZE:
     PARAMS_FILENAME: 'params'
 MODEL:
     MODEL_NAME: 'sfnet'
+    RESNET:
+        NET_SIZE: 101
 TEST:
     TEST_MODEL: 'model/cityscapes/final'
 TRAIN:
