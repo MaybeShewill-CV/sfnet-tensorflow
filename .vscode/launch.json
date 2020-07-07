@@ -12,20 +12,13 @@
             "console":"integratedTerminal"
         },
         {
-            "name": "Python: evaluate_mobilenetv2_ilsvrc2012.py",
+            "name": "Python: resnet.py",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/tools/ilsvrc2012/evaluate_mobilenetv2_ilsvrc2012.py",
-            "args": [
-                "--weights_path",
-                "./model/ilsvrc2012/mobilenetv2/ilsvrc2012_val_loss=7.5635.ckpt-16",
-                "--image_index_file_path",
-                "/media/baidu/DataRepo/IMAGE_CLASSIFICATION/ILSVRC2012/image_file_index/test.txt"
-            ],
-            "env": {
-                "CUDA_VISIBLE_DEVICES": "1"
-            },
-            "console": "integratedTerminal"
+            "program": "${workspaceFolder}/sfnet_model/resnet.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceRoot}",
+            "env": {"PYTHONPATH":"${workspaceRoot}"},
         }
     ]
 }
