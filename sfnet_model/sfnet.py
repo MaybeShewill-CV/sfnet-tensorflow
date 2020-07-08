@@ -181,7 +181,11 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
         if 'padding' in kwargs:
             self._padding = kwargs['padding']
         [_, low_height, low_width, _] = input_tensor_low.get_shape().as_list()
-        with tf.variable_scope(name_or_scope=name_scope):
+        if tf.__version__ == '1.15.0':
+            vars_scope = tf.compat.v1.variable_scope(name_or_scope=name_scope)
+        else:
+            vars_scope = tf.variable_scope(name_or_scope=name_scope)
+        with vars_scope:
             # project input_tensor_low
             input_tensor_low = self.conv2d(
                 inputdata=input_tensor_low,
@@ -202,12 +206,20 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
                 use_bias=False,
                 name='upsample_conv_1x1'
             )
-            tensor_upsample = tf.image.resize_bilinear(
-                images=tensor_upsample,
-                size=(low_height, low_width),
-                align_corners=True,
-                name='upsampled_high_features'
-            )
+            if tf.__version__ == '1.15.0':
+                tensor_upsample = tf.compat.v1.image.resize_bilinear(
+                    images=tensor_upsample,
+                    size=(low_height, low_width),
+                    align_corners=True,
+                    name='upsampled_high_features'
+                )
+            else:
+                tensor_upsample = tf.image.resize_bilinear(
+                    images=tensor_upsample,
+                    size=(low_height, low_width),
+                    align_corners=True,
+                    name='upsampled_high_features'
+                )
             # generate grid
             input_tensor_low_project = self.conv2d(
                 inputdata=input_tensor_low,
