@@ -21,6 +21,7 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
     cnn_basenet : [type]
         [description]
     """
+
     def __init__(self, phase) -> None:
         """
 
@@ -65,10 +66,12 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
                 name='conv'
             )
             if need_activate:
-                result = self.layerbn(inputdata=result, is_training=self._is_training, name='bn', scale=True)
+                result = self.layerbn(
+                    inputdata=result, is_training=self._is_training, name='bn', scale=True)
                 result = self.relu(inputdata=result, name='relu')
             else:
-                result = self.layerbn(inputdata=result, is_training=self._is_training, name='bn', scale=True)
+                result = self.layerbn(
+                    inputdata=result, is_training=self._is_training, name='bn', scale=True)
         return result
 
     @classmethod
@@ -163,7 +166,8 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
         wd = tf.expand_dims(wd, axis=3)
 
         # compute output
-        out = tf.add_n([wa * i_a, wb * i_b, wc * i_c, wd * i_d], name='bilinear_sample_output')
+        out = tf.add_n([wa * i_a, wb * i_b, wc * i_c, wd * i_d],
+                       name='bilinear_sample_output')
 
         return out
 
@@ -214,7 +218,8 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
                 use_bias=False,
                 name='input_tensor_low_project_conv_1x1'
             )
-            sf_fileld_input_tensor = tf.concat([input_tensor_low_project, tensor_upsample], axis=-1)
+            sf_fileld_input_tensor = tf.concat(
+                [input_tensor_low_project, tensor_upsample], axis=-1)
             sf_field_x = self.conv2d(
                 inputdata=sf_fileld_input_tensor,
                 out_channel=1,
@@ -242,7 +247,8 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
                 y=sf_field_y
             )
             # fuse features
-            output = tf.add(input_tensor_low, warpped_features, name='fam_output')
+            output = tf.add(input_tensor_low, warpped_features,
+                            name='fam_output')
         return output
 
 
@@ -250,8 +256,10 @@ if __name__ == '__main__':
     """
     test code
     """
-    input_feature_low = tf.random.normal(shape=[4, 56, 56, 256], name='input_feature_map')
-    input_feature_high = tf.random.normal(shape=[4, 28, 28, 256], name='input_feature_map')
+    input_feature_low = tf.random.normal(
+        shape=[4, 56, 56, 256], name='input_feature_map')
+    input_feature_high = tf.random.normal(
+        shape=[4, 28, 28, 256], name='input_feature_map')
 
     fam_module = _FAMModule(phase='test')
     fam_output = fam_module(
@@ -261,6 +269,3 @@ if __name__ == '__main__':
         name='fam_stage_1'
     )
     print(fam_output)
-
-
-
