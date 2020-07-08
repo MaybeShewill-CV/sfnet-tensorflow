@@ -22,9 +22,13 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
         [description]
     """
 
-    def __init__(self, phase) -> None:
-        """
+    def __init__(self, phase):
+        """init function
 
+        Parameters
+        ----------
+        phase : str
+            train phase or test phase
         """
         super(_FAMModule, self).__init__()
         self._phase = phase
@@ -55,7 +59,11 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
         :param use_bias:
         :return:
         """
-        with tf.variable_scope(name_or_scope=name):
+        if tf.__version__ == '1.15.0':
+            vars_scope = tf.compat.v1.variable_scope(name_or_scope=name)
+        else:
+            vars_scope = tf.variable_scope(name_or_scope=name)
+        with vars_scope:
             result = self.conv2d(
                 inputdata=input_tensor,
                 out_channel=output_channels,
@@ -262,6 +270,100 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
             output = tf.add(input_tensor_low, warpped_features,
                             name='fam_output')
         return output
+
+
+class _PPModule(cnn_basenet.CNNBaseModel):
+    """Pyramid Pooling Module
+
+    Parameters
+    ----------
+    cnn_basenet : [type]
+        [description]
+    """
+    def __init__(self, phase):
+        """init function
+
+        Parameters
+        ----------
+        phase : str
+            train phase or test phase
+        """
+        def __init__(self, phase):
+            """init function
+
+        Parameters
+        ----------
+        phase : str
+            train phase or test phase
+        """
+        super(_PPModule, self).__init__()
+        self._phase = phase
+        self._is_training = self._is_net_for_training()
+        self._padding = 'SAME'
+
+    def _is_net_for_training(self):
+        """
+        if the net is used for training or not
+        :return:
+        """
+        if isinstance(self._phase, tf.Tensor):
+            phase = self._phase
+        else:
+            phase = tf.constant(self._phase, dtype=tf.string)
+        return tf.equal(phase, tf.constant('train', dtype=tf.string))
+
+    def _conv_block(self, input_tensor, k_size, output_channels, stride,
+                    name, padding='SAME', use_bias=False, need_activate=False):
+        """
+        conv block in attention refine
+        :param input_tensor:
+        :param k_size:
+        :param output_channels:
+        :param stride:
+        :param name:
+        :param padding:
+        :param use_bias:
+        :return:
+        """
+        if tf.__version__ == '1.15.0':
+            vars_scope = tf.compat.v1.variable_scope(name_or_scope=name)
+        else:
+            vars_scope = tf.variable_scope(name_or_scope=name)
+        with vars_scope:
+            result = self.conv2d(
+                inputdata=input_tensor,
+                out_channel=output_channels,
+                kernel_size=k_size,
+                padding=padding,
+                stride=stride,
+                use_bias=use_bias,
+                name='conv'
+            )
+            if need_activate:
+                result = self.layerbn(
+                    inputdata=result, is_training=self._is_training, name='bn', scale=True)
+                result = self.relu(inputdata=result, name='relu')
+            else:
+                result = self.layerbn(
+                    inputdata=result, is_training=self._is_training, name='bn', scale=True)
+        return result
+
+    def __call__(self, *args, **kwargs):
+        """
+        ppm module function
+        """
+        input_tensor = kwargs['input_tensor']
+        output_channels = kwargs['output_channels']
+        output_pool_sizes = kwargs['output_pool_sizes']
+        name_scope = kwargs['name']
+        [_, in_height, in_width, in_chnnels] = input_tensor.get_shape().as_list()
+        if tf.__version__ == '1.15.0':
+            vars_scope = tf.compat.v1.variable_scope(name_or_scope=name_scope)
+        else:
+            vars_scope = tf.variable_scope(name_or_scope=name_scope)
+        with vars_scope:
+            pass
+
 
 
 if __name__ == '__main__':
