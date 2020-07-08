@@ -14,7 +14,7 @@ import loguru
 
 from local_utils.config_utils import parse_config_utils
 
-CFG = parse_config_utils.cityscapes_cfg_v2
+CFG = parse_config_utils.CITYSCAPES_CFG
 LOG = loguru.logger
 
 
@@ -239,9 +239,9 @@ def randomly_scale_image_and_label(image, label=None, scale=1.0, align_corners=T
         tf.cast([image_shape[1], image_shape[2]], tf.float32) * scale,
         tf.int32)
 
-    image = tf.image.resize_bilinear(image, new_dim, align_corners=True)
+    image = tf.image.resize_bilinear(image, new_dim, align_corners=align_corners)
     if label is not None:
-        label = tf.image.resize_nearest_neighbor(label, new_dim, align_corners=True)
+        label = tf.image.resize_nearest_neighbor(label, new_dim, align_corners=align_corners)
     return image, label
 
 
@@ -509,9 +509,8 @@ def preprocess_image_for_val(src_image, label_image):
     return src_image, label_image
 
 
-if __name__ == '__main__':
-    """
-    test code
+def main():
+    """test code
     """
     source_image_path = '/media/baidu/DataRepo/IMAGE_SCENE_SEGMENTATION/CITYSPACES/' \
                         'gt_images/leftImg8bit/train/aachen/aachen_000000_000019_leftImg8bit.png'
@@ -534,3 +533,7 @@ if __name__ == '__main__':
         while True:
             ret = sess.run([preprocess_src_img])
             print(ret[0].shape)
+
+
+if __name__ == '__main__':
+    main()
