@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2020/04/10 下午4:02
 # @Author  : MaybeShewill-CV
-# @Site    : https://github.com/MaybeShewill-CV/bisenetv2-tensorflow
-# @File    : cityscapes_bisenetv2_multi_gpu_trainner.py
+# @Site    : https://github.com/MaybeShewill-CV/sfnet-tensorflow
+# @File    : cityscapes_sfnet_multi_gpu_trainner.py
 # @IDE: PyCharm
 """
-Bisenetv2 multi gpu trainner for cityscapes dataset
+Sfnet multi gpu trainner for cityscapes dataset
 """
 import os
 import os.path as ops
@@ -19,21 +19,21 @@ import tensorflow as tf
 import loguru
 import tqdm
 
-from bisenet_model import bisenet_v2
+from sfnet_model import sfnet
 from local_utils.config_utils import parse_config_utils
 from data_provider.cityscapes import cityscapes_tf_io
 
 LOG = loguru.logger
-CFG = parse_config_utils.cityscapes_cfg_v2
+CFG = parse_config_utils.CITYSCAPES_CFG
 
 
-class BiseNetV2CityScapesMultiTrainer(object):
+class SFNetCityScapesMultiTrainer(object):
     """
-    init bisenetv2 multi gpu trainner
+    init sfnet multi gpu trainner
     """
     def __init__(self):
         """
-        initialize bisenetv2 multi gpu trainner
+        initialize sfnet multi gpu trainner
         """
         # define solver params and dataset
         self._cityscapes_io = cityscapes_tf_io.CityScapesTfIO()
@@ -53,7 +53,7 @@ class BiseNetV2CityScapesMultiTrainer(object):
         self._enable_miou = CFG.TRAIN.COMPUTE_MIOU.ENABLE
         if self._enable_miou:
             self._record_miou_epoch = CFG.TRAIN.COMPUTE_MIOU.EPOCH
-        self._input_tensor_size = [int(tmp / 2) for tmp in CFG.AUG.TRAIN_CROP_SIZE]
+        self._input_tensor_size = [int(tmp) for tmp in CFG.AUG.TRAIN_CROP_SIZE]
         self._gpu_devices = CFG.TRAIN.MULTI_GPU.GPU_DEVICES
         self._gpu_nums = len(self._gpu_devices)
         self._chief_gpu_index = CFG.TRAIN.MULTI_GPU.CHIEF_DEVICE_INDEX
@@ -95,8 +95,8 @@ class BiseNetV2CityScapesMultiTrainer(object):
             )
 
         # define model
-        self._model = bisenet_v2.BiseNetV2(phase='train', cfg=CFG)
-        self._val_model = bisenet_v2.BiseNetV2(phase='test', cfg=CFG)
+        self._model = sfnet.SFNet(phase='train', cfg=CFG)
+        self._val_model = sfnet.SFNet(phase='test', cfg=CFG)
 
         # define average container
         tower_grads = []
@@ -193,12 +193,12 @@ class BiseNetV2CityScapesMultiTrainer(object):
         # define prediction
         self._prediciton = self._model.inference(
             input_tensor=self._input_src_image_list[self._chief_gpu_index],
-            name='BiseNetV2',
+            name='SFNet',
             reuse=True
         )
         self._val_prediction = self._val_model.inference(
             input_tensor=self._val_input_src_image,
-            name='BiseNetV2',
+            name='SFNet',
             reuse=True
         )
 
@@ -270,7 +270,7 @@ class BiseNetV2CityScapesMultiTrainer(object):
             self._val_write_summary_op = tf.summary.merge(val_summary_merge_list)
             self._summary_writer = tf.summary.FileWriter(self._tboard_save_dir, graph=self._sess.graph)
 
-        LOG.info('Initialize cityscapes bisenetv2 multi gpu trainner complete')
+        LOG.info('Initialize cityscapes sfnet multi gpu trainner complete')
 
     @staticmethod
     def _average_gradients(tower_grads):
@@ -333,16 +333,17 @@ class BiseNetV2CityScapesMultiTrainer(object):
         net_loss = self._model.compute_loss(
             input_tensor=images,
             label_tensor=labels,
-            name='BiseNetV2',
+            name='SFNet',
             reuse=is_net_first_initialized
         )
-
+        
+        var_list = tf.compat.v1.trainable_variables() if tf.__version__ == '1.15.0' else tf.trainable_variables()
         if CFG.TRAIN.FREEZE_BN.ENABLE:
             train_var_list = [
-                v for v in tf.trainable_variables() if 'beta' not in v.name and 'gamma' not in v.name
+                v for v in var_list if 'beta' not in v.name and 'gamma' not in v.name
             ]
         else:
-            train_var_list = tf.trainable_variables()
+            train_var_list = var_list
 
         if optimizer is not None:
             grads = optimizer.compute_gradients(net_loss['total_loss'], var_list=train_var_list)
@@ -368,15 +369,15 @@ class BiseNetV2CityScapesMultiTrainer(object):
             except OSError as e:
                 LOG.error(e)
                 LOG.info('=> {:s} does not exist !!!'.format(self._initial_weight))
-                LOG.info('=> Now it starts to train BiseNetV2 from scratch ...')
+                LOG.info('=> Now it starts to train SFNet from scratch ...')
                 epoch_start_pt = 1
             except Exception as e:
                 LOG.error(e)
                 LOG.info('=> Can not load pretrained model weights: {:s}'.format(self._initial_weight))
-                LOG.info('=> Now it starts to train BiseNetV2 from scratch ...')
+                LOG.info('=> Now it starts to train SFNet from scratch ...')
                 epoch_start_pt = 1
         else:
-            LOG.info('=> Starts to train BiseNetV2 from scratch ...')
+            LOG.info('=> Starts to train SFNet from scratch ...')
             epoch_start_pt = 1
 
         best_model = []
@@ -517,5 +518,5 @@ if __name__ == '__main__':
     """
     test code
     """
-    worker = BiseNetV2CityScapesMultiTrainer()
+    worker = SFNetCityScapesMultiTrainer()
     print('Init complete')

@@ -113,8 +113,13 @@ class ResNet(resnet_utils.ResnetBase):
             return self._conv2d_fixed_padding(
                 inputs=_inputs, output_dims=output_dims * 4, kernel_size=1,
                 strides=stride, name='projection_shortcut')
-
-        with tf.variable_scope(name):
+        
+        if tf.__version__ == '1.15.0':
+            vars_scope = tf.compat.v1.variable_scope(
+                name_or_scope=name)
+        else:
+            vars_scope = tf.variable_scope(name_or_scope=name)
+        with vars_scope:
             inputs = self._block_func(
                 input_tensor=input_tensor,
                 output_dims=output_dims,

@@ -7,8 +7,8 @@ AUG:
     MAX_SCALE_FACTOR: 2.0  # for stepscaling
     MIN_SCALE_FACTOR: 0.75  # for stepscaling
     SCALE_STEP_SIZE: 0.25  # for stepscaling
-    TRAIN_CROP_SIZE: [2048, 1024]  # crop size for training
-    EVAL_CROP_SIZE: [2048, 1024]  # crop size for evaluating
+    TRAIN_CROP_SIZE: [720, 720]  # crop size for training
+    EVAL_CROP_SIZE: [720, 720]  # crop size for evaluating
     MIRROR: True
     FLIP: False
     FLIP_RATIO: 0.5
@@ -63,7 +63,7 @@ TRAIN:
         ENABLE: True
         EPOCH: 1
     MULTI_GPU:
-        ENABLE: True
+        ENABLE: False
         GPU_DEVICES: ['0', '1', '2', '3']
         CHIEF_DEVICE_INDEX: 0
 SOLVER:

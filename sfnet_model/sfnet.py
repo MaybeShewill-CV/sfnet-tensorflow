@@ -379,11 +379,18 @@ class _PPModule(cnn_basenet.CNNBaseModel):
                     use_bias=False,
                     need_activate=True
                 )
-                ppm_feature = tf.image.resize_bilinear(
-                    images=ppm_feature,
-                    size=(in_height, in_width),
-                    name='ppm_pool_size_{:d}_upsample'.format(output_pool_size)
-                )
+                if tf.__version__ == '1.15.0':
+                    ppm_feature = tf.compat.v1.image.resize_bilinear(
+                        images=ppm_feature,
+                        size=(in_height, in_width),
+                        name='ppm_pool_size_{:d}_upsample'.format(output_pool_size)
+                    )
+                else:
+                    ppm_feature = tf.image.resize_bilinear(
+                        images=ppm_feature,
+                        size=(in_height, in_width),
+                        name='ppm_pool_size_{:d}_upsample'.format(output_pool_size)
+                    )
                 ppm_features.append(ppm_feature)
 
             output_tensor = tf.concat(ppm_features, axis=-1, name='ppm_output')
@@ -484,11 +491,18 @@ class _SegmentationHead(cnn_basenet.CNNBaseModel):
                 use_bias=False,
                 name='1x1_conv_block'
             )
-            result = tf.image.resize_bilinear(
-                result,
-                output_tensor_size,
-                name='segmentation_head_logits'
-            )
+            if tf.__version__ == '1.15.0':
+                result = tf.compat.v1.image.resize_bilinear(
+                    result,
+                    output_tensor_size,
+                    name='segmentation_head_logits'
+                )
+            else:
+                result = tf.image.resize_bilinear(
+                    result,
+                    output_tensor_size,
+                    name='segmentation_head_logits'
+                )
         return result
 
 
@@ -744,8 +758,9 @@ class SFNet(cnn_basenet.CNNBaseModel):
                 class_nums=self._class_nums,
                 name='cross_entropy_loss'
             )
+            var_list = tf.compat.v1.trainable_variables() if tf.__version__ == '1.15.0' else tf.trainable_variables()
             l2_reg_loss = self._compute_l2_reg_loss(
-                var_list=tf.trainable_variables(),
+                var_list=var_list,
                 weights_decay=self._weights_decay,
                 name='segment_l2_loss'
             )
@@ -781,9 +796,11 @@ def main():
     )
     for loss_name, loss_t in loss_set.items():
         print('Loss: {:s}, {}'.format(loss_name, loss_t))
-
-    with tf.Session() as sess:
-        sess.run(tf.global_variables_initializer())
+    
+    sess = tf.compat.v1.Session() if tf.__version__ == '1.15.0' else tf.Session()
+    with sess.as_default():
+        init_op = tf.compat.v1.global_variables_initializer() if tf.__version__ == '1.15.0' else tf.global_variables_initializer()
+        sess.run(init_op)
 
         loop_times = 500
 

@@ -857,13 +857,22 @@ class CNNBaseModel(object):
                         name='max_pool2d'
                     )
             elif mode == 'avg_pool':
-                output_tensor = tf.nn.avg_pool(
-                    new_input_tensor,
-                    ksize=[1, h_size, h_size, 1],
-                    strides=[1, h_strd, w_strd, 1],
-                    padding='SAME',
-                    name='avg_pool2d'
-                )
+                if TF_VERSION == '1.15.0':
+                    output_tensor = tf.nn.avg_pool2d(
+                        new_input_tensor,
+                        ksize=[1, h_size, h_size, 1],
+                        strides=[1, h_strd, w_strd, 1],
+                        padding='SAME',
+                        name='avg_pool2d'
+                    )
+                else:
+                    output_tensor = tf.nn.avg_pool(
+                        input=new_input_tensor,
+                        ksize=[1, h_size, h_size, 1],
+                        strides=[1, h_strd, w_strd, 1],
+                        padding='SAME',
+                        name='avg_pool2d'
+                    )
             else:
                 raise ValueError('Not support pool mode')
         return output_tensor
