@@ -8,6 +8,8 @@
 """
 The base convolution neural networks mainly implement some useful cnn functions
 """
+import math
+
 import tensorflow as tf
 import numpy as np
 
@@ -57,9 +59,11 @@ class CNNBaseModel(object):
             padding = padding.upper()
 
             if isinstance(kernel_size, list):
-                filter_shape = [kernel_size[0], kernel_size[1]] + [in_channel / split, out_channel]
+                filter_shape = [kernel_size[0], kernel_size[1]
+                                ] + [in_channel / split, out_channel]
             else:
-                filter_shape = [kernel_size, kernel_size] + [in_channel / split, out_channel]
+                filter_shape = [kernel_size, kernel_size] + \
+                    [in_channel / split, out_channel]
 
             if isinstance(stride, list):
                 strides = [1, stride[0], stride[1], 1] if data_format == 'NHWC' \
@@ -76,9 +80,10 @@ class CNNBaseModel(object):
                 # w_init = initializers.xavier_initializer()
             if b_init is None:
                 b_init = tf.constant_initializer()
-            
+
             if TF_VERSION == '1.15.0':
-                w = tf.compat.v1.get_variable('W', filter_shape, initializer=w_init)
+                w = tf.compat.v1.get_variable(
+                    'W', filter_shape, initializer=w_init)
             else:
                 w = tf.get_variable('W', filter_shape, initializer=w_init)
             b = None
@@ -87,7 +92,8 @@ class CNNBaseModel(object):
                 b = tf.get_variable('b', [out_channel], initializer=b_init)
 
             if split == 1:
-                conv = tf.nn.conv2d(inputdata, w, strides, padding, data_format=data_format)
+                conv = tf.nn.conv2d(inputdata, w, strides,
+                                    padding, data_format=data_format)
             else:
                 inputs = tf.split(inputdata, split, channel_axis)
                 kernels = tf.split(w, split, 3)
@@ -123,8 +129,10 @@ class CNNBaseModel(object):
             in_channel = in_shape[3]
             padding = padding.upper()
 
-            depthwise_filter_shape = [kernel_size, kernel_size] + [in_channel, depth_multiplier]
-            pointwise_filter_shape = [1, 1, in_channel * depth_multiplier, output_channels]
+            depthwise_filter_shape = [
+                kernel_size, kernel_size] + [in_channel, depth_multiplier]
+            pointwise_filter_shape = [
+                1, 1, in_channel * depth_multiplier, output_channels]
             if TF_VERSION == '1.15.0':
                 w_init = tf.variance_scaling_initializer()
             else:
@@ -172,7 +180,8 @@ class CNNBaseModel(object):
             in_channel = in_shape[3]
             padding = padding.upper()
 
-            depthwise_filter_shape = [kernel_size, kernel_size] + [in_channel, depth_multiplier]
+            depthwise_filter_shape = [
+                kernel_size, kernel_size] + [in_channel, depth_multiplier]
             if TF_VERSION == '1.15.0':
                 w_init = tf.variance_scaling_initializer()
             else:
@@ -248,12 +257,12 @@ class CNNBaseModel(object):
             return tf.nn.max_pool2d(
                 input=inputdata, ksize=kernel, strides=strides, padding=padding,
                 data_format=data_format, name=name
-                )
+            )
         else:
             return tf.nn.max_pool(
                 value=inputdata, ksize=kernel, strides=strides, padding=padding,
                 data_format=data_format, name=name
-                )
+            )
 
     @staticmethod
     def avgpooling(inputdata, kernel_size, stride=None, padding='VALID',
@@ -274,7 +283,8 @@ class CNNBaseModel(object):
         kernel = [1, kernel_size, kernel_size, 1] if data_format == 'NHWC' \
             else [1, 1, kernel_size, kernel_size]
 
-        strides = [1, stride, stride, 1] if data_format == 'NHWC' else [1, 1, stride, stride]
+        strides = [1, stride, stride, 1] if data_format == 'NHWC' else [
+            1, 1, stride, stride]
 
         return tf.nn.avg_pool(value=inputdata, ksize=kernel, strides=strides, padding=padding,
                               data_format=data_format, name=name)
@@ -312,7 +322,8 @@ class CNNBaseModel(object):
         ndims = len(shape)
         assert ndims in [2, 4]
 
-        mean, var = tf.nn.moments(inputdata, list(range(1, len(shape))), keep_dims=True)
+        mean, var = tf.nn.moments(inputdata, list(
+            range(1, len(shape))), keep_dims=True)
 
         if data_format == 'NCHW':
             channnel = shape[1]
@@ -324,12 +335,14 @@ class CNNBaseModel(object):
             new_shape = [1, channnel]
 
         if use_bias:
-            beta = tf.get_variable('beta', [channnel], initializer=tf.constant_initializer())
+            beta = tf.get_variable(
+                'beta', [channnel], initializer=tf.constant_initializer())
             beta = tf.reshape(beta, new_shape)
         else:
             beta = tf.zeros([1] * ndims, name='beta')
         if use_scale:
-            gamma = tf.get_variable('gamma', [channnel], initializer=tf.constant_initializer(1.0))
+            gamma = tf.get_variable(
+                'gamma', [channnel], initializer=tf.constant_initializer(1.0))
             gamma = tf.reshape(gamma, new_shape)
         else:
             gamma = tf.ones([1] * ndims, name='gamma')
@@ -349,7 +362,8 @@ class CNNBaseModel(object):
         """
         shape = inputdata.get_shape().as_list()
         if len(shape) != 4:
-            raise ValueError("Input data of instancebn layer has to be 4D tensor")
+            raise ValueError(
+                "Input data of instancebn layer has to be 4D tensor")
 
         if data_format == 'NHWC':
             axis = [1, 2]
@@ -367,9 +381,11 @@ class CNNBaseModel(object):
         if not use_affine:
             return tf.divide(inputdata - mean, tf.sqrt(var + epsilon), name='output')
 
-        beta = tf.get_variable('beta', [ch], initializer=tf.constant_initializer())
+        beta = tf.get_variable(
+            'beta', [ch], initializer=tf.constant_initializer())
         beta = tf.reshape(beta, new_shape)
-        gamma = tf.get_variable('gamma', [ch], initializer=tf.constant_initializer(1.0))
+        gamma = tf.get_variable(
+            'gamma', [ch], initializer=tf.constant_initializer(1.0))
         gamma = tf.reshape(gamma, new_shape)
         return tf.nn.batch_normalization(inputdata, mean, var, beta, gamma, epsilon, name=name)
 
@@ -391,7 +407,8 @@ class CNNBaseModel(object):
         with vars_scope:
             output_tensor = tf.cond(
                 pred=is_trainning,
-                true_fn=lambda: tf.nn.dropout(inputdata, keep_prob=keep_prob, noise_shape=noise_shape, name=name),
+                true_fn=lambda: tf.nn.dropout(
+                    inputdata, keep_prob=keep_prob, noise_shape=noise_shape, name=name),
                 false_fn=lambda: inputdata,
                 name='dropout_output'
             )
@@ -416,7 +433,8 @@ class CNNBaseModel(object):
         if None not in shape:
             inputdata = tf.reshape(inputdata, [-1, int(np.prod(shape))])
         else:
-            inputdata = tf.reshape(inputdata, tf.stack([tf.shape(inputdata)[0], -1]))
+            inputdata = tf.reshape(inputdata, tf.stack(
+                [tf.shape(inputdata)[0], -1]))
 
         if w_init is None:
             if TF_VERSION == '1.15.0':
@@ -469,7 +487,8 @@ class CNNBaseModel(object):
 
             # compute norm
             norm_square = tf.pow(input_tensor, 2, name='power')
-            norm_square = tf.reduce_mean(input_tensor=norm_square, axis=[1, 2], keepdims=True)
+            norm_square = tf.reduce_mean(
+                input_tensor=norm_square, axis=[1, 2], keepdims=True)
             if scale:
                 gamma = tf.get_variable(
                     name='gamma',
@@ -543,13 +562,16 @@ class CNNBaseModel(object):
             inputdata = tf.transpose(inputdata, [0, 3, 1, 2])
             n, c, h, w = inputdata.get_shape().as_list()
             group_size = min(group_size, c)
-            inputdata = tf.reshape(inputdata, [-1, group_size, c // group_size, h, w])
+            inputdata = tf.reshape(
+                inputdata, [-1, group_size, c // group_size, h, w])
             mean, var = tf.nn.moments(inputdata, [2, 3, 4], keep_dims=True)
             inputdata = (inputdata - mean) / tf.sqrt(var + esp)
 
             # 每个通道的gamma和beta
-            gamma = tf.Variable(tf.constant(1.0, shape=[c]), dtype=tf.float32, name='gamma')
-            beta = tf.Variable(tf.constant(0.0, shape=[c]), dtype=tf.float32, name='beta')
+            gamma = tf.Variable(tf.constant(
+                1.0, shape=[c]), dtype=tf.float32, name='gamma')
+            beta = tf.Variable(tf.constant(
+                0.0, shape=[c]), dtype=tf.float32, name='beta')
             gamma = tf.reshape(gamma, [1, c, 1, 1])
             beta = tf.reshape(beta, [1, c, 1, 1])
 
@@ -692,7 +714,8 @@ class CNNBaseModel(object):
 
         def f1():
             input_shape = input_tensor.get_shape().as_list()
-            noise_shape = tf.constant(value=[input_shape[0], 1, 1, input_shape[3]])
+            noise_shape = tf.constant(
+                value=[input_shape[0], 1, 1, input_shape[3]])
             return tf.nn.dropout(input_tensor, keep_prob, noise_shape, seed=seed, name="spatial_dropout")
 
         def f2():
@@ -742,8 +765,10 @@ class CNNBaseModel(object):
             logit_y_pred = tf.math.log(y_pred / (1. - y_pred))
 
             loss = (1. - y_true) * logit_y_pred + (1. + (weight - 1.) * y_true) * \
-                   (tf.math.log(1. + tf.math.exp(-tf.math.abs(logit_y_pred))) + tf.math.maximum(-logit_y_pred, 0.))
-            total_loss = tf.identity(tf.reduce_sum(loss) / tf.reduce_sum(weight), name='bce_loss')
+                   (tf.math.log(1. + tf.math.exp(-tf.math.abs(logit_y_pred))
+                                ) + tf.math.maximum(-logit_y_pred, 0.))
+            total_loss = tf.identity(tf.reduce_sum(
+                loss) / tf.reduce_sum(weight), name='bce_loss')
         return total_loss
 
     @staticmethod
@@ -808,19 +833,28 @@ class CNNBaseModel(object):
         else:
             vars_scope = tf.variable_scope(name_or_scope=name)
         with vars_scope:
-            h_strd = h_size = tf.math.ceil(float(in_height) / out_pool_size)
-            w_strd = w_size = tf.math.ceil(float(in_width) / out_pool_size)
+            h_strd = h_size = math.ceil(float(in_height) / out_pool_size)
+            w_strd = w_size = math.ceil(float(in_width) / out_pool_size)
             pad_h = int(out_pool_size * h_size - in_height)
             pad_w = int(out_pool_size * w_size - in_width)
-            new_input_tensor = tf.pad(input_tensor, tf.constant([[0, 0], [0, pad_h], [0, pad_w], [0, 0]]))
+            new_input_tensor = tf.pad(input_tensor, tf.constant(
+                [[0, 0], [0, pad_h], [0, pad_w], [0, 0]]))
             if mode == 'max_pool':
                 if TF_VERSION == '1.15.0':
                     output_tensor = tf.nn.max_pool2d(
-                        input=new_input_tensor, ksize=[1, h_size, h_size, 1], strides=[1, h_strd, w_strd, 1], padding='SAME', name='max_pool2d'
+                        input=new_input_tensor,
+                        ksize=[1, h_size, h_size, 1],
+                        strides=[1, h_strd, w_strd, 1],
+                        padding='SAME',
+                        name='max_pool2d'
                     )
                 else:
                     output_tensor = tf.nn.max_pool(
-                        new_input_tensor, ksize=[1, h_size, h_size, 1], strides=[1, h_strd, w_strd, 1], padding='SAME', name='max_pool2d'
+                        new_input_tensor,
+                        ksize=[1, h_size, h_size, 1],
+                        strides=[1, h_strd, w_strd, 1],
+                        padding='SAME',
+                        name='max_pool2d'
                     )
             elif mode == 'avg_pool':
                 output_tensor = tf.nn.avg_pool(

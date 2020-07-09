@@ -8,9 +8,15 @@
 """
 semantic flow model for image scene segmentation
 """
+import collections
+import time
+
 import tensorflow as tf
 
-from sfnet_model import cnn_basenet
+from local_utils.config_utils import parse_config_utils
+from sfnet_model import cnn_basenet, resnet
+
+CFG = parse_config_utils.CITYSCAPES_CFG
 
 
 class _FAMModule(cnn_basenet.CNNBaseModel):
@@ -280,16 +286,9 @@ class _PPModule(cnn_basenet.CNNBaseModel):
     cnn_basenet : [type]
         [description]
     """
+
     def __init__(self, phase):
         """init function
-
-        Parameters
-        ----------
-        phase : str
-            train phase or test phase
-        """
-        def __init__(self, phase):
-            """init function
 
         Parameters
         ----------
@@ -353,33 +352,334 @@ class _PPModule(cnn_basenet.CNNBaseModel):
         ppm module function
         """
         input_tensor = kwargs['input_tensor']
-        output_channels = kwargs['output_channels']
         output_pool_sizes = kwargs['output_pool_sizes']
         name_scope = kwargs['name']
-        [_, in_height, in_width, in_chnnels] = input_tensor.get_shape().as_list()
+        [_, in_height, in_width, in_channels] = input_tensor.get_shape().as_list()
+        ppm_features = [input_tensor]
+        ppm_levels = len(output_pool_sizes)
         if tf.__version__ == '1.15.0':
             vars_scope = tf.compat.v1.variable_scope(name_or_scope=name_scope)
         else:
             vars_scope = tf.variable_scope(name_or_scope=name_scope)
         with vars_scope:
-            pass
+            for output_pool_size in output_pool_sizes:
+                ppm_feature = self.spatial_pyramid_pool(
+                    input_tensor=input_tensor,
+                    out_pool_size=output_pool_size,
+                    name='ppm_pool_size_{:d}'.format(output_pool_size),
+                    mode='avg_pool'
+                )
+                ppm_feature = self._conv_block(
+                    input_tensor=ppm_feature,
+                    k_size=1,
+                    output_channels=int(in_channels / ppm_levels),
+                    stride=1,
+                    name='ppm_pool_size_{:d}_project'.format(output_pool_size),
+                    padding='SAME',
+                    use_bias=False,
+                    need_activate=True
+                )
+                ppm_feature = tf.image.resize_bilinear(
+                    images=ppm_feature,
+                    size=(in_height, in_width),
+                    name='ppm_pool_size_{:d}_upsample'.format(output_pool_size)
+                )
+                ppm_features.append(ppm_feature)
 
+            output_tensor = tf.concat(ppm_features, axis=-1, name='ppm_output')
+            return output_tensor
+
+
+class _SegmentationHead(cnn_basenet.CNNBaseModel):
+    """
+    implementation of segmentation head in bisenet v2
+    """
+
+    def __init__(self, phase):
+        """
+
+        """
+        super(_SegmentationHead, self).__init__()
+        self._phase = phase
+        self._is_training = self._is_net_for_training()
+        self._padding = 'SAME'
+
+    def _is_net_for_training(self):
+        """
+        if the net is used for training or not
+        :return:
+        """
+        if isinstance(self._phase, tf.Tensor):
+            phase = self._phase
+        else:
+            phase = tf.constant(self._phase, dtype=tf.string)
+        return tf.equal(phase, tf.constant('train', dtype=tf.string))
+
+    def _conv_block(self, input_tensor, k_size, output_channels, stride,
+                    name, padding='SAME', use_bias=False, need_activate=False):
+        """
+        conv block in attention refine
+        :param input_tensor:
+        :param k_size:
+        :param output_channels:
+        :param stride:
+        :param name:
+        :param padding:
+        :param use_bias:
+        :return:
+        """
+        with tf.variable_scope(name_or_scope=name):
+            result = self.conv2d(
+                inputdata=input_tensor,
+                out_channel=output_channels,
+                kernel_size=k_size,
+                padding=padding,
+                stride=stride,
+                use_bias=use_bias,
+                name='conv'
+            )
+            if need_activate:
+                result = self.layerbn(
+                    inputdata=result, is_training=self._is_training, name='bn', scale=True)
+                result = self.relu(inputdata=result, name='relu')
+            else:
+                result = self.layerbn(
+                    inputdata=result, is_training=self._is_training, name='bn', scale=True)
+        return result
+
+    def __call__(self, *args, **kwargs):
+        """
+
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        input_tensor = kwargs['input_tensor']
+        name_scope = kwargs['name']
+        ratio = kwargs['upsample_ratio']
+        input_tensor_size = input_tensor.get_shape().as_list()[1:3]
+        output_tensor_size = [int(tmp * ratio) for tmp in input_tensor_size]
+        feature_dims = kwargs['feature_dims']
+        classes_nums = kwargs['classes_nums']
+        if 'padding' in kwargs:
+            self._padding = kwargs['padding']
+
+        with tf.variable_scope(name_or_scope=name_scope):
+            result = self._conv_block(
+                input_tensor=input_tensor,
+                k_size=3,
+                output_channels=feature_dims,
+                stride=1,
+                name='3x3_conv_block',
+                padding=self._padding,
+                use_bias=False,
+                need_activate=True
+            )
+            result = self.conv2d(
+                inputdata=result,
+                out_channel=classes_nums,
+                kernel_size=1,
+                padding=self._padding,
+                stride=1,
+                use_bias=False,
+                name='1x1_conv_block'
+            )
+            result = tf.image.resize_bilinear(
+                result,
+                output_tensor_size,
+                name='segmentation_head_logits'
+            )
+        return result
+
+
+class SFNet(cnn_basenet.CNNBaseModel):
+    """Semantic flow Net
+
+    Args:
+        cnn_basenet ([type]): [description]
+    """
+
+    def __init__(self, phase, cfg):
+        """init net
+
+        Args:
+            phase (str): train mode or test mode
+            cfg (Config): Config
+        """
+        super(SFNet, self).__init__()
+        self._phase = phase
+        self._is_training = self._is_net_for_training()
+
+        # set model hyper params
+        self._basenet = resnet.ResNet(phase=phase, cfg=cfg)
+        self._ppm_output_sizes = [1, 2, 3, 6]
+        self._class_nums = cfg.DATASET.NUM_CLASSES
+        self._weights_decay = cfg.SOLVER.WEIGHT_DECAY
+        self._loss_type = cfg.SOLVER.LOSS_TYPE
+
+        # set module used in sfnet
+        self._fam_block = _FAMModule(phase=phase)
+        self._ppm_block = _PPModule(phase=phase)
+        self._seg_head_block = _SegmentationHead(phase=phase)
+
+    def _is_net_for_training(self):
+        """
+        if the net is used for training or not
+        :return:
+        """
+        if isinstance(self._phase, tf.Tensor):
+            phase = self._phase
+        else:
+            phase = tf.constant(self._phase, dtype=tf.string)
+        return tf.equal(phase, tf.constant('train', dtype=tf.string))
+
+    def build_model(self, input_tensor, reuse=False):
+        """Build sfnet model
+
+        Args:
+            input_tensor (tensor): input tf tensor
+            reuse (bool): if reuse vars
+        """
+        if tf.__version__ == '1.15.0':
+            encode_vars_scope = tf.compat.v1.variable_scope(
+                name_or_scope='encoder')
+        else:
+            encode_vars_scope = tf.variable_scope(name_or_scope='encoder')
+        with encode_vars_scope:
+            encoded_features = self._basenet.inference(
+                input_tensor=input_tensor,
+                name='Resnet_Backbone',
+                reuse=reuse
+            )
+        decoded_features = collections.OrderedDict()
+        if tf.__version__ == '1.15.0':
+            decode_vars_scope = tf.compat.v1.variable_scope(
+                name_or_scope='decoder')
+        else:
+            decode_vars_scope = tf.variable_scope(name_or_scope='decoder')
+        with decode_vars_scope:
+            # first apply ppm
+            encoded_final_features = self.conv2d(
+                inputdata=encoded_features['stage_4'],
+                out_channel=64,
+                kernel_size=1,
+                padding='SAME',
+                stride=1,
+                use_bias=False,
+                name='ppm_input_tensor'
+            )
+            ppm_output_tensor = self._ppm_block(
+                input_tensor=encoded_final_features,
+                output_pool_sizes=self._ppm_output_sizes,
+                name='ppm'
+            )
+            decode_stage_1 = ppm_output_tensor
+            decoded_features['stage_1'] = decode_stage_1
+            decode_stage_2 = self._fam_block(
+                input_tensor_low=encoded_features['stage_3'],
+                input_tensor_high=decode_stage_1,
+                output_channels=128,
+                name='decode_fam_stage_1'
+            )
+            decoded_features['stage_2'] = decode_stage_2
+            decode_stage_3 = self._fam_block(
+                input_tensor_low=encoded_features['stage_2'],
+                input_tensor_high=decode_stage_2,
+                output_channels=128,
+                name='decode_fam_stage_2'
+            )
+            decoded_features['stage_3'] = decode_stage_3
+            decode_stage_4 = self._fam_block(
+                input_tensor_low=encoded_features['stage_1'],
+                input_tensor_high=decode_stage_3,
+                output_channels=128,
+                name='decode_fam_stage_3'
+            )
+            decoded_features['stage_4'] = decode_stage_4
+            final_decode_stage_4 = decode_stage_4
+            final_decode_stage_3 = self._fam_block(
+                input_tensor_low=final_decode_stage_4,
+                input_tensor_high=decode_stage_3,
+                output_channels=128,
+                name='final_decode_fam_stage_3'
+            )
+            final_decode_stage_2 = self._fam_block(
+                input_tensor_low=final_decode_stage_4,
+                input_tensor_high=decode_stage_2,
+                output_channels=128,
+                name='final_decode_fam_stage_2'
+            )
+            final_decode_stage_1 = self._fam_block(
+                input_tensor_low=final_decode_stage_4,
+                input_tensor_high=decode_stage_1,
+                output_channels=128,
+                name='final_decode_fam_stage_1'
+            )
+            final_decode_features = tf.concat(
+                [final_decode_stage_4, final_decode_stage_3,
+                    final_decode_stage_2, final_decode_stage_1],
+                axis=-1,
+                name='final_decode_features'
+            )
+            decoded_features['final_stage'] = final_decode_features
+        return decoded_features
+
+    def inference(self, input_tensor, name, reuse=False):
+        """sfnet inference part
+
+        Args:
+            input_tensor ([type]): [description]
+            name ([type]): [description]
+            reuse (bool, optional): [description]. Defaults to False.
+        """
+        if tf.__version__ == '1.15.0':
+            vars_scope = tf.compat.v1.variable_scope(
+                name_or_scope=name, reuse=reuse)
+        else:
+            vars_scope = tf.variable_scope(name_or_scope=name, reuse=reuse)
+        with vars_scope:
+            net_features = self.build_model(
+                input_tensor=input_tensor,
+                reuse=reuse
+            )['final_stage']
+            segment_logits = self._seg_head_block(
+                input_tensor=net_features,
+                name='logits',
+                upsample_ratio=4,
+                feature_dims=64,
+                classes_nums=self._class_nums
+            )
+            segment_score = tf.nn.softmax(logits=segment_logits, name='prob')
+            segment_prediction = tf.argmax(
+                segment_score, axis=-1, name='prediction')
+        return segment_prediction
+
+
+def main():
+    """test code
+    """
+    input_tensor = tf.random.uniform([1, 720, 720, 3], name='input_tensor')
+    net = SFNet(phase='train', cfg=CFG)
+
+    inference_result = net.inference(
+        input_tensor=input_tensor,
+        reuse=False,
+        name='SFNet'
+    )
+    print(inference_result)
+
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+
+        loop_times = 500
+
+        t_start = time.time()
+        for _ in range(loop_times):
+            preds = sess.run(inference_result)
+        t_cost = (time.time() - t_start) / loop_times
+        print('Net inference cost time: {:.5f}'.format(t_cost))
+        print('Net inference can reach: {:.5f} fps'.format(1.0 / t_cost))
 
 
 if __name__ == '__main__':
-    """
-    test code
-    """
-    input_feature_low = tf.random.normal(
-        shape=[4, 56, 56, 256], name='input_feature_map')
-    input_feature_high = tf.random.normal(
-        shape=[4, 28, 28, 256], name='input_feature_map')
-
-    fam_module = _FAMModule(phase='test')
-    fam_output = fam_module(
-        input_tensor_low=input_feature_low,
-        input_tensor_high=input_feature_high,
-        output_channels=256,
-        name='fam_stage_1'
-    )
-    print(fam_output)
+    main()

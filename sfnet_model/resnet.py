@@ -9,6 +9,7 @@
 Resnet for image classification
 """
 import collections
+import time
 
 import tensorflow as tf
 
@@ -22,6 +23,7 @@ class ResNet(resnet_utils.ResnetBase):
     """
     Dialated Resnet Backbone for semantic segmentation
     """
+
     def __init__(self, phase, cfg=CFG):
         """
 
@@ -147,14 +149,14 @@ class ResNet(resnet_utils.ResnetBase):
                     input_image_tensor=input_tensor,
                     kernel_size=7,
                     conv_stride=2,
-                    output_dims=64,
+                    output_dims=32,
                     pool_size=3,
                     pool_stride=2
                 )
 
                 # The first two layers doesn't not need apply dilation
                 for index, block_nums in enumerate(self._block_sizes):
-                    output_dims = 64 * (2 ** index)
+                    output_dims = 32 * (2 ** index)
                     inputs = self._resnet_block_layer(
                         input_tensor=inputs,
                         stride=self._block_strides[index],
@@ -170,14 +172,14 @@ class ResNet(resnet_utils.ResnetBase):
                     input_image_tensor=input_tensor,
                     kernel_size=7,
                     conv_stride=2,
-                    output_dims=64,
+                    output_dims=32,
                     pool_size=3,
                     pool_stride=2
                 )
 
                 # The first two layers doesn't not need apply dilation
                 for index, block_nums in enumerate(self._block_sizes):
-                    output_dims = 64 * (2 ** index)
+                    output_dims = 32 * (2 ** index)
                     inputs = self._resnet_block_layer(
                         input_tensor=inputs,
                         stride=self._block_strides[index],
@@ -194,9 +196,10 @@ def main():
     """test code
     """
     if tf.__version__ == '1.15.0':
-        image_tensor = tf.compat.v1.placeholder(shape=[4, 224, 224, 3], dtype=tf.float32)
+        image_tensor = tf.compat.v1.random.uniform(
+            [1, 720, 720, 3], name='input_tensor')
     else:
-        image_tensor = tf.placeholder(shape=[4, 224, 224, 3], dtype=tf.float32)
+        image_tensor = tf.random.uniform([1, 720, 720, 3], name='input_tensor')
 
     net = ResNet(phase='train', cfg=CFG)
 
@@ -205,9 +208,20 @@ def main():
         name='test',
         reuse=False
     )
-
     for stage_name, stage_output in result.items():
         print('Stage name: {:s}, output: {}'.format(stage_name, stage_output))
+
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+
+        loop_times = 500
+
+        t_start = time.time()
+        for _ in range(loop_times):
+            preds = sess.run(result)
+        t_cost = (time.time() - t_start) / loop_times
+        print('Net inference cost time: {:.5f}'.format(t_cost))
+        print('Net inference can reach: {:.5f} fps'.format(1.0 / t_cost))
 
 
 if __name__ == '__main__':

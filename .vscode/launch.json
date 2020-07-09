@@ -18,7 +18,8 @@
             "console": "integratedTerminal",
             "cwd": "${workspaceRoot}",
             "env": {
-                "PYTHONPATH": "${workspaceRoot}"
+                "PYTHONPATH": "${workspaceRoot}",
+                "CUDA_VISIBLE_DEVICES": "0",
             },
         },
         {
