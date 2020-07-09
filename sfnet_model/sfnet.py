@@ -533,6 +533,64 @@ class SFNet(cnn_basenet.CNNBaseModel):
             phase = tf.constant(self._phase, dtype=tf.string)
         return tf.equal(phase, tf.constant('train', dtype=tf.string))
 
+    @classmethod
+    def _compute_cross_entropy_loss(cls, seg_logits, labels, class_nums, name):
+        """
+
+        :param seg_logits:
+        :param labels:
+        :param class_nums:
+        :param name:
+        :return:
+        """
+        with tf.variable_scope(name_or_scope=name):
+            # first check if the logits' shape is matched with the labels'
+            seg_logits_shape = seg_logits.shape[1:3]
+            labels_shape = labels.shape[1:3]
+            seg_logits = tf.cond(
+                tf.reduce_all(tf.equal(seg_logits_shape, labels_shape)),
+                true_fn=lambda: seg_logits,
+                false_fn=lambda: tf.image.resize_bilinear(
+                    seg_logits, labels_shape)
+            )
+            seg_logits = tf.reshape(seg_logits, [-1, class_nums])
+            labels = tf.reshape(labels, [-1, ])
+            indices = tf.squeeze(
+                tf.where(tf.less_equal(labels, class_nums - 1)), 1)
+            seg_logits = tf.gather(seg_logits, indices)
+            labels = tf.cast(tf.gather(labels, indices), tf.int32)
+
+            # compute cross entropy loss
+            loss = tf.reduce_mean(
+                tf.nn.sparse_softmax_cross_entropy_with_logits(
+                    labels=labels,
+                    logits=seg_logits
+                ),
+                name='cross_entropy_loss'
+            )
+        return loss
+
+    @classmethod
+    def _compute_l2_reg_loss(cls, var_list, weights_decay, name):
+        """
+
+        :param var_list:
+        :param weights_decay:
+        :param name:
+        :return:
+        """
+        with tf.variable_scope(name_or_scope=name):
+            l2_reg_loss = tf.constant(0.0, tf.float32)
+            for vv in var_list:
+                if 'beta' in vv.name or 'gamma' in vv.name or 'b:0' in vv.name.split('/')[-1]:
+                    continue
+                else:
+                    l2_reg_loss = tf.add(l2_reg_loss, tf.nn.l2_loss(vv))
+            l2_reg_loss *= weights_decay
+            l2_reg_loss = tf.identity(l2_reg_loss, 'l2_loss')
+
+        return l2_reg_loss
+
     def build_model(self, input_tensor, reuse=False):
         """Build sfnet model
 
@@ -654,11 +712,58 @@ class SFNet(cnn_basenet.CNNBaseModel):
                 segment_score, axis=-1, name='prediction')
         return segment_prediction
 
+    def compute_loss(self, input_tensor, label_tensor, name, reuse=False):
+        """Compute net loss
+
+        Args:
+            input_tensor ([type]): [description]
+            label_tensor ([type]): [description]
+            name ([type]): [description]
+            reuse (bool, optional): [description]. Defaults to False.
+        """
+        if tf.__version__ == '1.15.0':
+            vars_scope = tf.compat.v1.variable_scope(
+                name_or_scope=name, reuse=reuse)
+        else:
+            vars_scope = tf.variable_scope(name_or_scope=name, reuse=reuse)
+        with vars_scope:
+            net_features = self.build_model(
+                input_tensor=input_tensor,
+                reuse=reuse
+            )['final_stage']
+            segment_logits = self._seg_head_block(
+                input_tensor=net_features,
+                name='logits',
+                upsample_ratio=4,
+                feature_dims=64,
+                classes_nums=self._class_nums
+            )
+            segment_loss = self._compute_cross_entropy_loss(
+                seg_logits=segment_logits,
+                labels=label_tensor,
+                class_nums=self._class_nums,
+                name='cross_entropy_loss'
+            )
+            l2_reg_loss = self._compute_l2_reg_loss(
+                var_list=tf.trainable_variables(),
+                weights_decay=self._weights_decay,
+                name='segment_l2_loss'
+            )
+            total_loss = segment_loss + l2_reg_loss
+            total_loss = tf.identity(total_loss, name='total_loss')
+
+            ret = {
+                'total_loss': total_loss,
+                'l2_loss': l2_reg_loss,
+            }
+        return ret
+
 
 def main():
     """test code
     """
     input_tensor = tf.random.uniform([1, 720, 720, 3], name='input_tensor')
+    label_tensor = tf.ones([1, 720, 720], name='input_tensor', dtype=tf.int32)
     net = SFNet(phase='train', cfg=CFG)
 
     inference_result = net.inference(
@@ -667,6 +772,15 @@ def main():
         name='SFNet'
     )
     print(inference_result)
+
+    loss_set = net.compute_loss(
+        input_tensor=input_tensor,
+        label_tensor=label_tensor,
+        reuse=True,
+        name='SFNet'
+    )
+    for loss_name, loss_t in loss_set.items():
+        print('Loss: {:s}, {}'.format(loss_name, loss_t))
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())

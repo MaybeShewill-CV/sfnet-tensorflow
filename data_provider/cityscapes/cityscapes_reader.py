@@ -19,13 +19,14 @@ from PIL import Image
 from local_utils.augment_utils.cityscapes import augmentation_utils as aug
 from local_utils.config_utils import parse_config_utils
 
-CFG = parse_config_utils.cityscapes_cfg_v2
+CFG = parse_config_utils.CITYSCAPES_CFG
 
 
 class _CitySpacesDataset(object):
     """
     cityscapes dataset
     """
+
     def __init__(self, image_file_paths):
         """
 
@@ -75,14 +76,17 @@ class _CitySpacesDataset(object):
 
         output_src_images = []
         output_label_images = []
-        resize_image_size = (int(CFG.AUG.TRAIN_CROP_SIZE[0] / 2), int(CFG.AUG.TRAIN_CROP_SIZE[1] / 2))
+        resize_image_size = (
+            int(CFG.AUG.TRAIN_CROP_SIZE[0] / 2), int(CFG.AUG.TRAIN_CROP_SIZE[1] / 2))
 
         for index, src_image in enumerate(src_images):
             output_src_image, output_label_image = aug.preprocess_image(
                 src_image, label_images[index]
             )
-            output_src_image = cv2.resize(output_src_image, resize_image_size, interpolation=cv2.INTER_LINEAR)
-            output_label_image = cv2.resize(output_label_image, resize_image_size, interpolation=cv2.INTER_NEAREST)
+            output_src_image = cv2.resize(
+                output_src_image, resize_image_size, interpolation=cv2.INTER_LINEAR)
+            output_label_image = cv2.resize(
+                output_label_image, resize_image_size, interpolation=cv2.INTER_NEAREST)
             output_src_images.append(output_src_image)
             output_label_images.append(output_label_image)
 
@@ -109,8 +113,10 @@ class _CitySpacesDataset(object):
         """
         with tf.device('/cpu:0'):
             if self._batch_count < self._num_batchs:
-                batch_image_paths = self._image_file_paths[self._batch_count:self._batch_count + self._batch_size]
-                batch_src_images, batch_label_images = self._load_batch_images(batch_image_paths)
+                batch_image_paths = self._image_file_paths[self._batch_count:
+                                                           self._batch_count + self._batch_size]
+                batch_src_images, batch_label_images = self._load_batch_images(
+                    batch_image_paths)
                 batch_src_images, batch_label_images = self._multiprocess_preprocess_images(
                     batch_src_images, batch_label_images
                 )
@@ -128,6 +134,7 @@ class CitySpacesReader(object):
     """
     City spaces dataset reader
     """
+
     def __init__(self):
         """
 
@@ -164,39 +171,51 @@ class CitySpacesReader(object):
         try:
             with open(self._train_image_index_file_path, 'r') as file:
                 for line in file:
-                    line_info = line.rstrip('\r').rstrip('\n').strip(' ').split()
+                    line_info = line.rstrip('\r').rstrip(
+                        '\n').strip(' ').split()
                     train_src_image_path = line_info[0]
                     train_label_image_path = line_info[1]
-                    assert ops.exists(train_src_image_path), '{:s} not exist'.format(train_src_image_path)
-                    assert ops.exists(train_label_image_path), '{:s} not exist'.format(train_label_image_path)
+                    assert ops.exists(train_src_image_path), '{:s} not exist'.format(
+                        train_src_image_path)
+                    assert ops.exists(train_label_image_path), '{:s} not exist'.format(
+                        train_label_image_path)
 
-                    self._train_image_paths.append([train_src_image_path, train_label_image_path])
+                    self._train_image_paths.append(
+                        [train_src_image_path, train_label_image_path])
         except OSError as err:
             print(err)
             raise err
         try:
             with open(self._val_image_index_file_path, 'r') as file:
                 for line in file:
-                    line_info = line.rstrip('\r').rstrip('\n').strip(' ').split()
+                    line_info = line.rstrip('\r').rstrip(
+                        '\n').strip(' ').split()
                     val_src_image_path = line_info[0]
                     val_label_image_path = line_info[1]
-                    assert ops.exists(val_src_image_path), '{:s} not exist'.format(val_src_image_path)
-                    assert ops.exists(val_label_image_path), '{:s} not exist'.format(val_label_image_path)
+                    assert ops.exists(val_src_image_path), '{:s} not exist'.format(
+                        val_src_image_path)
+                    assert ops.exists(val_label_image_path), '{:s} not exist'.format(
+                        val_label_image_path)
 
-                    self._val_image_paths.append([val_src_image_path, val_label_image_path])
+                    self._val_image_paths.append(
+                        [val_src_image_path, val_label_image_path])
         except OSError as err:
             print(err)
             raise err
         try:
             with open(self._test_image_index_file_path, 'r') as file:
                 for line in file:
-                    line_info = line.rstrip('\r').rstrip('\n').strip(' ').split()
+                    line_info = line.rstrip('\r').rstrip(
+                        '\n').strip(' ').split()
                     test_src_image_path = line_info[0]
                     test_label_image_path = line_info[1]
-                    assert ops.exists(test_src_image_path), '{:s} not exist'.format(test_src_image_path)
-                    assert ops.exists(test_label_image_path), '{:s} not exist'.format(test_label_image_path)
+                    assert ops.exists(test_src_image_path), '{:s} not exist'.format(
+                        test_src_image_path)
+                    assert ops.exists(test_label_image_path), '{:s} not exist'.format(
+                        test_label_image_path)
 
-                    self._test_image_paths.append([test_src_image_path, test_label_image_path])
+                    self._test_image_paths.append(
+                        [test_src_image_path, test_label_image_path])
         except OSError as err:
             print(err)
             raise err
@@ -240,14 +259,16 @@ if __name__ == '__main__':
 
     LABEL_CONTOURS = [(0, 0, 0),  # 0=road
                       # 1=sidewalk, 2=building, 3=wall, 4=fence, 5=pole
-                      (128, 0, 0), (0, 128, 0), (128, 128, 0), (0, 0, 128), (128, 0, 128),
+                      (128, 0, 0), (0, 128, 0), (128, 128,
+                                                 0), (0, 0, 128), (128, 0, 128),
                       # 6=traffic light, 7=traffic sign, 8=vegetation, 9=terrain, 10=sky
-                      (0, 128, 128), (128, 128, 128), (64, 0, 0), (192, 0, 0), (64, 128, 0),
+                      (0, 128, 128), (128, 128, 128), (64,
+                                                       0, 0), (192, 0, 0), (64, 128, 0),
                       # 11=person, 12=rider, 13=car, 14=truck, 15=bus
-                      (192, 128, 0), (64, 0, 128), (192, 0, 128), (64, 128, 128), (192, 128, 128),
+                      (192, 128, 0), (64, 0, 128), (192, 0,
+                                                    128), (64, 128, 128), (192, 128, 128),
                       # 16=train, 17=motorcycle, 18=bicycle
                       (0, 64, 0), (128, 64, 0), (0, 192, 0)]
-
 
     def decode_inference_prediction(mask):
         """
@@ -256,7 +277,8 @@ if __name__ == '__main__':
         :return:  A batch with num_images RGB images of the same size as the input.
         """
         unique_value = np.unique(mask)
-        color_mask = np.zeros(shape=[mask.shape[0], mask.shape[1], 3], dtype=np.uint8)
+        color_mask = np.zeros(
+            shape=[mask.shape[0], mask.shape[1], 3], dtype=np.uint8)
         for index, value in enumerate(unique_value):
             if value == 0:
                 continue
