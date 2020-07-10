@@ -155,11 +155,18 @@ class _CityScapesTfWriter(object):
         os.makedirs(tfrecords_dir, exist_ok=True)
 
         LOG.info('Writing {:s}....'.format(tfrecords_path))
-
-        with tf.python_io.TFRecordWriter(tfrecords_path) as writer:
+        
+        if tf.__version__ == '1.15.0':
+            writer = tf.io.TFRecordWriter(tfrecords_path)
+        else:
+            writer = tf.python_io.TFRecordWriter(tfrecords_path)
+        with writer:
             for sample_path in sample_image_paths:
                 gt_src_image_path = sample_path[0]
                 gt_label_image_path = sample_path[1]
+
+                assert ops.exists(gt_src_image_path), '{:s} not exist'.format(gt_src_image_path)
+                assert ops.exists(gt_label_image_path), '{:s} not exist'.format(gt_label_image_path)
 
                 # prepare gt image
                 gt_image_raw = tf.gfile.FastGFile(

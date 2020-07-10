@@ -859,7 +859,7 @@ class CNNBaseModel(object):
             elif mode == 'avg_pool':
                 if TF_VERSION == '1.15.0':
                     output_tensor = tf.nn.avg_pool2d(
-                        input=new_input_tensor,
+                        new_input_tensor,
                         ksize=[1, h_size, h_size, 1],
                         strides=[1, h_strd, w_strd, 1],
                         padding='SAME',
