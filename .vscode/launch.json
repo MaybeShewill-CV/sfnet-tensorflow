@@ -46,5 +46,17 @@
                 "CUDA_VISIBLE_DEVICES": "0",
             },
         },
+        {
+            "name": "Python: train.py",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/tools/cityscapes/train_sfnet_cityscapes.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceRoot}",
+            "env": {
+                "PYTHONPATH": "${workspaceRoot}",
+                "CUDA_VISIBLE_DEVICES": "0, 1",
+            },
+        },
     ]
 }

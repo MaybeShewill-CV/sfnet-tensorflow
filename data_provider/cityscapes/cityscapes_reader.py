@@ -15,11 +15,24 @@ import numpy as np
 import tensorflow as tf
 import tqdm
 from PIL import Image
+import matplotlib.pyplot as plt
 
 from local_utils.augment_utils.cityscapes import augmentation_utils as aug
 from local_utils.config_utils import parse_config_utils
 
 CFG = parse_config_utils.CITYSCAPES_CFG
+LABEL_CONTOURS = [(0, 0, 0),  # 0=road
+                  # 1=sidewalk, 2=building, 3=wall, 4=fence, 5=pole
+                  (128, 0, 0), (0, 128, 0), (128, 128,
+                                             0), (0, 0, 128), (128, 0, 128),
+                  # 6=traffic light, 7=traffic sign, 8=vegetation, 9=terrain, 10=sky
+                  (0, 128, 128), (128, 128, 128), (64,
+                                                   0, 0), (192, 0, 0), (64, 128, 0),
+                  # 11=person, 12=rider, 13=car, 14=truck, 15=bus
+                  (192, 128, 0), (64, 0, 128), (192, 0,
+                                                128), (64, 128, 128), (192, 128, 128),
+                  # 16=train, 17=motorcycle, 18=bicycle
+                  (0, 64, 0), (128, 64, 0), (0, 192, 0)]
 
 
 class _CitySpacesDataset(object):
@@ -248,48 +261,38 @@ class CitySpacesReader(object):
         return self._test_dataset
 
 
-if __name__ == '__main__':
+def decode_inference_prediction(mask):
     """
-    test code
+    Decode batch of segmentation masks.
+    :param mask: result of inference after taking argmax.
+    :return:  A batch with num_images RGB images of the same size as the input.
     """
+    unique_value = np.unique(mask)
+    color_mask = np.zeros(
+        shape=[mask.shape[0], mask.shape[1], 3], dtype=np.uint8)
+    for index, value in enumerate(unique_value):
+        if value == 0:
+            continue
+        if value == 255:
+            continue
+        idx = np.where(mask == value)
+        color_mask[idx] = LABEL_CONTOURS[value]
 
+    return color_mask
+
+
+def main():
+    """test code
+
+    Raises:
+        ValueError: [description]
+
+    Returns:
+        [type]: [description]
+    """
     reader = CitySpacesReader()
     train_dataset = reader.train_dataset
     val_dataset = reader.val_dataset
-
-    LABEL_CONTOURS = [(0, 0, 0),  # 0=road
-                      # 1=sidewalk, 2=building, 3=wall, 4=fence, 5=pole
-                      (128, 0, 0), (0, 128, 0), (128, 128,
-                                                 0), (0, 0, 128), (128, 0, 128),
-                      # 6=traffic light, 7=traffic sign, 8=vegetation, 9=terrain, 10=sky
-                      (0, 128, 128), (128, 128, 128), (64,
-                                                       0, 0), (192, 0, 0), (64, 128, 0),
-                      # 11=person, 12=rider, 13=car, 14=truck, 15=bus
-                      (192, 128, 0), (64, 0, 128), (192, 0,
-                                                    128), (64, 128, 128), (192, 128, 128),
-                      # 16=train, 17=motorcycle, 18=bicycle
-                      (0, 64, 0), (128, 64, 0), (0, 192, 0)]
-
-    def decode_inference_prediction(mask):
-        """
-        Decode batch of segmentation masks.
-        :param mask: result of inference after taking argmax.
-        :return:  A batch with num_images RGB images of the same size as the input.
-        """
-        unique_value = np.unique(mask)
-        color_mask = np.zeros(
-            shape=[mask.shape[0], mask.shape[1], 3], dtype=np.uint8)
-        for index, value in enumerate(unique_value):
-            if value == 0:
-                continue
-            if value == 255:
-                continue
-            idx = np.where(mask == value)
-            color_mask[idx] = LABEL_CONTOURS[value]
-
-        return color_mask
-
-    import matplotlib.pyplot as plt
 
     for train_samples in tqdm.tqdm(train_dataset):
         src_imgs = train_samples[0]
@@ -306,3 +309,7 @@ if __name__ == '__main__':
 
         plt.show()
         raise ValueError
+
+
+if __name__ == '__main__':
+    main()

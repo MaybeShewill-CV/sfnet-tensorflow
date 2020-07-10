@@ -34,11 +34,12 @@ def decode(serialized_example):
 
     # decode gt image
     gt_image = tf.image.decode_png(features['gt_src_image_raw'], channels=3)
-    gt_image = tf.reshape(gt_image, shape=[CFG.AUG.TRAIN_CROP_SIZE[1], CFG.AUG.TRAIN_CROP_SIZE[0], 3])
+    gt_image = tf.reshape(gt_image, shape=[1024, 2048, 3])
 
     # decode gt binary image
-    gt_binary_image = tf.image.decode_png(features['gt_label_image_raw'], channels=1)
-    gt_binary_image = tf.reshape(gt_binary_image, shape=[CFG.AUG.TRAIN_CROP_SIZE[1], CFG.AUG.TRAIN_CROP_SIZE[0], 1])
+    gt_binary_image = tf.image.decode_png(
+        features['gt_label_image_raw'], channels=1)
+    gt_binary_image = tf.reshape(gt_binary_image, shape=[1024, 2048, 1])
 
     return gt_image, gt_binary_image
 
@@ -64,9 +65,11 @@ def resize(img, grt=None, mode='train', align_corners=True):
     grt = tf.expand_dims(grt, axis=0)
     if CFG.AUG.RESIZE_METHOD == 'unpadding':
         target_size = (CFG.AUG.FIX_RESIZE_SIZE[0], CFG.AUG.FIX_RESIZE_SIZE[1])
-        img = tf.image.resize_bilinear(images=img, size=target_size, align_corners=align_corners)
+        img = tf.image.resize_bilinear(
+            images=img, size=target_size, align_corners=align_corners)
         if grt is not None:
-            grt = tf.image.resize_nearest_neighbor(images=grt, size=target_size, align_corners=align_corners)
+            grt = tf.image.resize_nearest_neighbor(
+                images=grt, size=target_size, align_corners=align_corners)
     elif CFG.AUG.RESIZE_METHOD == 'stepscaling':
         if mode == 'train':
             min_scale_factor = CFG.AUG.MIN_SCALE_FACTOR
@@ -94,7 +97,8 @@ def resize(img, grt=None, mode='train', align_corners=True):
         value = tf.maximum(img.shape[0], img.shape[1])
         scale = float(random_size) / float(value)
         target_size = (int(img.shape[0] * scale), int(img.shape[1] * scale))
-        img = tf.image.resize_bilinear(images=img, size=target_size, align_corners=align_corners)
+        img = tf.image.resize_bilinear(
+            images=img, size=target_size, align_corners=align_corners)
         if grt is not None:
             grt = tf.image.resize_nearest_neighbor(
                 images=grt,
@@ -102,7 +106,8 @@ def resize(img, grt=None, mode='train', align_corners=True):
                 align_corners=align_corners
             )
     else:
-        raise Exception("Unexpect data augmention method: {}".format(CFG.AUG.AUG_METHOD))
+        raise Exception(
+            "Unexpect data augmention method: {}".format(CFG.AUG.AUG_METHOD))
 
     return tf.squeeze(img, axis=0), tf.squeeze(grt, axis=0)
 
@@ -181,7 +186,7 @@ def pad_to_bounding_box(
         channel_params = tf.stack([0, 0])
         with tf.control_dependencies([offset_assert]):
             paddings = tf.stack([batch_params, height_params, width_params,
-                               channel_params])
+                                 channel_params])
         padded = tf.pad(image, paddings)
         if not is_batch:
             padded = tf.squeeze(padded, axis=[0])
@@ -239,9 +244,11 @@ def randomly_scale_image_and_label(image, label=None, scale=1.0, align_corners=T
         tf.cast([image_shape[1], image_shape[2]], tf.float32) * scale,
         tf.int32)
 
-    image = tf.image.resize_bilinear(image, new_dim, align_corners=align_corners)
+    image = tf.image.resize_bilinear(
+        image, new_dim, align_corners=align_corners)
     if label is not None:
-        label = tf.image.resize_nearest_neighbor(label, new_dim, align_corners=align_corners)
+        label = tf.image.resize_nearest_neighbor(
+            label, new_dim, align_corners=align_corners)
     return image, label
 
 
@@ -386,8 +393,10 @@ def random_flip_image(img, grt):
         if n > 0:
             random_value = tf.random_uniform([])
             is_flipped = tf.less_equal(random_value, 0.5)
-            img = tf.cond(is_flipped, true_fn=lambda: img[::-1, :, :], false_fn=lambda: img)
-            grt = tf.cond(is_flipped, true_fn=lambda: grt[::-1, :, :], false_fn=lambda: grt)
+            img = tf.cond(
+                is_flipped, true_fn=lambda: img[::-1, :, :], false_fn=lambda: img)
+            grt = tf.cond(
+                is_flipped, true_fn=lambda: grt[::-1, :, :], false_fn=lambda: grt)
 
     return img, grt
 
@@ -402,8 +411,10 @@ def random_mirror_image(img, grt):
     if CFG.AUG.MIRROR:
         random_value = tf.random_uniform([])
         is_mirrored = tf.less_equal(random_value, 0.5)
-        img = tf.cond(is_mirrored, true_fn=lambda: img[:, ::-1, :], false_fn=lambda: img)
-        grt = tf.cond(is_mirrored, true_fn=lambda: grt[:, ::-1, :], false_fn=lambda: grt)
+        img = tf.cond(
+            is_mirrored, true_fn=lambda: img[:, ::-1, :], false_fn=lambda: img)
+        grt = tf.cond(
+            is_mirrored, true_fn=lambda: grt[:, ::-1, :], false_fn=lambda: grt)
 
     return img, grt
 
@@ -417,11 +428,13 @@ def normalize_image(img, grt):
     """
     img = tf.divide(img, tf.constant(255.0))
     img_mean = tf.convert_to_tensor(
-        np.array(CFG.DATASET.MEAN_VALUE).reshape((1, 1, len(CFG.DATASET.MEAN_VALUE))),
+        np.array(CFG.DATASET.MEAN_VALUE).reshape(
+            (1, 1, len(CFG.DATASET.MEAN_VALUE))),
         dtype=tf.float32
     )
     img_std = tf.convert_to_tensor(
-        np.array(CFG.DATASET.STD_VALUE).reshape((1, 1, len(CFG.DATASET.STD_VALUE))),
+        np.array(CFG.DATASET.STD_VALUE).reshape(
+            (1, 1, len(CFG.DATASET.STD_VALUE))),
         dtype=tf.float32
     )
     img -= img_mean
@@ -447,12 +460,16 @@ def preprocess_image_for_train(src_image, label_image):
     image_shape = tf.shape(src_image)
     image_height = image_shape[0]
     image_width = image_shape[1]
-    target_height = image_height + tf.maximum(CFG.AUG.TRAIN_CROP_SIZE[1] - image_height, 0)
-    target_width = image_width + tf.maximum(CFG.AUG.TRAIN_CROP_SIZE[0] - image_width, 0)
+    target_height = image_height + \
+        tf.maximum(CFG.AUG.TRAIN_CROP_SIZE[1] - image_height, 0)
+    target_width = image_width + \
+        tf.maximum(CFG.AUG.TRAIN_CROP_SIZE[0] - image_width, 0)
 
     pad_pixel = tf.reshape(CFG.DATASET.PADDING_VALUE, [1, 1, 3])
-    src_image = pad_to_bounding_box(src_image, 0, 0, target_height, target_width, pad_pixel)
-    label_image = pad_to_bounding_box(label_image, 0, 0, target_height, target_width, CFG.DATASET.IGNORE_INDEX)
+    src_image = pad_to_bounding_box(
+        src_image, 0, 0, target_height, target_width, pad_pixel)
+    label_image = pad_to_bounding_box(
+        label_image, 0, 0, target_height, target_width, CFG.DATASET.IGNORE_INDEX)
     # random crop
     src_image, label_image = rand_crop(
         image_list=[src_image, label_image],
@@ -461,21 +478,6 @@ def preprocess_image_for_train(src_image, label_image):
     )
     # normalize image
     src_image, label_image = normalize_image(src_image, label_image)
-    # downsample input image
-    resize_image_size = (int(CFG.AUG.TRAIN_CROP_SIZE[1] / 2), int(CFG.AUG.TRAIN_CROP_SIZE[0] / 2))
-    src_image = tf.image.resize_bilinear(
-        images=tf.expand_dims(src_image, axis=0),
-        size=resize_image_size,
-        align_corners=True
-    )
-    label_image = tf.image.resize_nearest_neighbor(
-        images=tf.expand_dims(label_image, axis=0),
-        size=resize_image_size,
-        align_corners=True
-    )
-
-    src_image = tf.squeeze(src_image, axis=0)
-    label_image = tf.squeeze(label_image, axis=0)
 
     return src_image, label_image
 
@@ -490,21 +492,6 @@ def preprocess_image_for_val(src_image, label_image):
     src_image = tf.cast(src_image, tf.float32)
     # normalize image
     src_image, label_image = normalize_image(src_image, label_image)
-    # downsample input image
-    resize_image_size = (int(CFG.AUG.TRAIN_CROP_SIZE[1] / 2), int(CFG.AUG.TRAIN_CROP_SIZE[0] / 2))
-    src_image = tf.image.resize_bilinear(
-        images=tf.expand_dims(src_image, axis=0),
-        size=resize_image_size,
-        align_corners=True
-    )
-    label_image = tf.image.resize_nearest_neighbor(
-        images=tf.expand_dims(label_image, axis=0),
-        size=resize_image_size,
-        align_corners=True
-    )
-
-    src_image = tf.squeeze(src_image, axis=0)
-    label_image = tf.squeeze(label_image, axis=0)
 
     return src_image, label_image
 

@@ -380,7 +380,7 @@ def main():
         [description]
     """
     io = CityScapesTfIO()
-    src_images, label_images = io.val_dataset_reader.next_batch(batch_size=4)
+    src_images, label_images = io.train_dataset_reader.next_batch(batch_size=4)
     relu_ret = tf.nn.relu(src_images)
 
     count = 1
@@ -388,7 +388,8 @@ def main():
         while True:
             try:
                 t_start = time.time()
-                images, labels, _ = sess.run([src_images, label_images, relu_ret])
+                images, labels, _ = sess.run(
+                    [src_images, label_images, relu_ret])
                 print('Iter: {:d}, cost time: {:.5f}s'.format(
                     count, time.time() - t_start))
                 count += 1
@@ -403,7 +404,6 @@ def main():
                 plt.show()
             except tf.errors.OutOfRangeError as err:
                 print(err)
-
 
 
 if __name__ == '__main__':

@@ -31,6 +31,7 @@ class SFNetCityScapesMultiTrainer(object):
     """
     init sfnet multi gpu trainner
     """
+
     def __init__(self):
         """
         initialize sfnet multi gpu trainner
@@ -48,8 +49,10 @@ class SFNetCityScapesMultiTrainer(object):
         self._batch_size = CFG.TRAIN.BATCH_SIZE
         self._val_batch_size = CFG.TRAIN.VAL_BATCH_SIZE
         self._snapshot_epoch = CFG.TRAIN.SNAPSHOT_EPOCH
-        self._model_save_dir = ops.join(CFG.TRAIN.MODEL_SAVE_DIR, self._model_name)
-        self._tboard_save_dir = ops.join(CFG.TRAIN.TBOARD_SAVE_DIR, self._model_name)
+        self._model_save_dir = ops.join(
+            CFG.TRAIN.MODEL_SAVE_DIR, self._model_name)
+        self._tboard_save_dir = ops.join(
+            CFG.TRAIN.TBOARD_SAVE_DIR, self._model_name)
         self._enable_miou = CFG.TRAIN.COMPUTE_MIOU.ENABLE
         if self._enable_miou:
             self._record_miou_epoch = CFG.TRAIN.COMPUTE_MIOU.EPOCH
@@ -87,7 +90,8 @@ class SFNetCityScapesMultiTrainer(object):
             self._input_src_image_list = []
             self._input_label_image_list = []
             for i in range(self._gpu_nums):
-                src_imgs, label_imgs = self._train_dataset.next_batch(batch_size=self._batch_size_per_gpu)
+                src_imgs, label_imgs = self._train_dataset.next_batch(
+                    batch_size=self._batch_size_per_gpu)
                 self._input_src_image_list.append(src_imgs)
                 self._input_label_image_list.append(label_imgs)
             self._val_input_src_image, self._val_input_label_image = self._val_dataset.next_batch(
@@ -106,9 +110,12 @@ class SFNetCityScapesMultiTrainer(object):
 
         # define learning rate
         with tf.variable_scope('learning_rate'):
-            self._global_step = tf.Variable(1.0, dtype=tf.float32, trainable=False, name='global_step')
-            self._val_global_step = tf.Variable(1.0, dtype=tf.float32, trainable=False, name='val_global_step')
-            self._val_global_step_update = tf.assign_add(self._val_global_step, 1.0)
+            self._global_step = tf.Variable(
+                1.0, dtype=tf.float32, trainable=False, name='global_step')
+            self._val_global_step = tf.Variable(
+                1.0, dtype=tf.float32, trainable=False, name='val_global_step')
+            self._val_global_step_update = tf.assign_add(
+                self._val_global_step, 1.0)
             warmup_steps = tf.constant(
                 self._warmup_epoches * self._steps_per_epoch, dtype=tf.float32, name='warmup_steps'
             )
@@ -117,7 +124,8 @@ class SFNetCityScapesMultiTrainer(object):
             )
             self._learn_rate = tf.cond(
                 pred=self._global_step < warmup_steps,
-                true_fn=lambda: self._compute_warmup_lr(warmup_steps=warmup_steps, name='warmup_lr'),
+                true_fn=lambda: self._compute_warmup_lr(
+                    warmup_steps=warmup_steps, name='warmup_lr'),
                 false_fn=lambda: tf.train.polynomial_decay(
                     learning_rate=self._init_learning_rate,
                     global_step=self._global_step,
@@ -138,7 +146,8 @@ class SFNetCityScapesMultiTrainer(object):
                 learning_rate=self._learn_rate,
             )
         else:
-            raise NotImplementedError('Not support optimizer: {:s} for now'.format(self._optimizer_mode))
+            raise NotImplementedError(
+                'Not support optimizer: {:s} for now'.format(self._optimizer_mode))
 
         # define distributed train op
         with tf.variable_scope(tf.get_variable_scope()):
@@ -156,18 +165,21 @@ class SFNetCityScapesMultiTrainer(object):
 
                         # Only use the mean and var in the chief gpu tower to update the parameter
                         if i == self._chief_gpu_index:
-                            batchnorm_updates = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+                            batchnorm_updates = tf.get_collection(
+                                tf.GraphKeys.UPDATE_OPS)
 
                         tower_grads.append(tmp_grads)
                         tower_total_loss.append(tmp_loss['total_loss'])
                         tower_l2_loss.append(tmp_loss['l2_loss'])
         grads = self._average_gradients(tower_grads)
-        self._loss = tf.reduce_mean(tower_total_loss, name='reduce_mean_tower_total_loss')
-        self._l2_loss = tf.reduce_mean(tower_l2_loss, name='reduce_mean_tower_l2_loss')
+        self._loss = tf.reduce_mean(
+            tower_total_loss, name='reduce_mean_tower_total_loss')
+        self._l2_loss = tf.reduce_mean(
+            tower_l2_loss, name='reduce_mean_tower_l2_loss')
         ret = self._val_model.compute_loss(
             input_tensor=self._val_input_src_image,
             label_tensor=self._val_input_label_image,
-            name='BiseNetV2',
+            name='SFNet',
             reuse=True
         )
         self._val_loss = ret['total_loss']
@@ -187,8 +199,10 @@ class SFNetCityScapesMultiTrainer(object):
 
         # group all the op needed for training
         batchnorm_updates_op = tf.group(*batchnorm_updates)
-        apply_gradient_op = optimizer.apply_gradients(grads, global_step=self._global_step)
-        self._train_op = tf.group(apply_gradient_op, moving_ave_op, batchnorm_updates_op)
+        apply_gradient_op = optimizer.apply_gradients(
+            grads, global_step=self._global_step)
+        self._train_op = tf.group(
+            apply_gradient_op, moving_ave_op, batchnorm_updates_op)
 
         # define prediction
         self._prediciton = self._model.inference(
@@ -206,8 +220,10 @@ class SFNetCityScapesMultiTrainer(object):
         if self._enable_miou:
             with tf.variable_scope('miou'):
                 pred = tf.reshape(self._prediciton, [-1, ])
-                gt = tf.reshape(self._input_label_image_list[self._chief_gpu_index], [-1, ])
-                indices = tf.squeeze(tf.where(tf.less_equal(gt, CFG.DATASET.NUM_CLASSES - 1)), 1)
+                gt = tf.reshape(
+                    self._input_label_image_list[self._chief_gpu_index], [-1, ])
+                indices = tf.squeeze(
+                    tf.where(tf.less_equal(gt, CFG.DATASET.NUM_CLASSES - 1)), 1)
                 gt = tf.gather(gt, indices)
                 pred = tf.gather(pred, indices)
                 self._miou, self._miou_update_op = tf.metrics.mean_iou(
@@ -218,7 +234,8 @@ class SFNetCityScapesMultiTrainer(object):
 
                 val_pred = tf.reshape(self._val_prediction, [-1, ])
                 val_gt = tf.reshape(self._val_input_label_image, [-1, ])
-                indices = tf.squeeze(tf.where(tf.less_equal(val_gt, CFG.DATASET.NUM_CLASSES - 1)), 1)
+                indices = tf.squeeze(tf.where(tf.less_equal(
+                    val_gt, CFG.DATASET.NUM_CLASSES - 1)), 1)
                 val_gt = tf.gather(val_gt, indices)
                 val_pred = tf.gather(val_pred, indices)
                 self._val_miou, self._val_miou_update_op = tf.metrics.mean_iou(
@@ -229,7 +246,8 @@ class SFNetCityScapesMultiTrainer(object):
 
         # define saver and loader
         with tf.variable_scope('loader_and_saver'):
-            self._net_var = [vv for vv in tf.global_variables() if 'lr' not in vv.name]
+            self._net_var = [
+                vv for vv in tf.global_variables() if 'lr' not in vv.name]
             self._loader = tf.train.Saver(self._net_var)
             self._saver = tf.train.Saver(max_to_keep=10)
 
@@ -252,23 +270,28 @@ class SFNetCityScapesMultiTrainer(object):
                         tf.summary.scalar('l2_loss', self._l2_loss),
                         tf.summary.scalar('miou', self._miou)
                     ]
-                    self._write_summary_op_with_miou = tf.summary.merge(summary_merge_list_with_miou)
+                    self._write_summary_op_with_miou = tf.summary.merge(
+                        summary_merge_list_with_miou)
                 with tf.control_dependencies([self._val_miou_update_op, self._val_global_step_update]):
                     val_summary_merge_list_with_miou = [
                         tf.summary.scalar('val_total_loss', self._val_loss),
                         tf.summary.scalar('val_l2_loss', self._val_l2_loss),
                         tf.summary.scalar('val_miou', self._val_miou),
                     ]
-                    self._val_write_summary_op_with_miou = tf.summary.merge(val_summary_merge_list_with_miou)
+                    self._val_write_summary_op_with_miou = tf.summary.merge(
+                        val_summary_merge_list_with_miou)
             if ops.exists(self._tboard_save_dir):
                 shutil.rmtree(self._tboard_save_dir)
             os.makedirs(self._tboard_save_dir, exist_ok=True)
-            model_params_file_save_path = ops.join(self._tboard_save_dir, CFG.TRAIN.MODEL_PARAMS_CONFIG_FILE_NAME)
+            model_params_file_save_path = ops.join(
+                self._tboard_save_dir, CFG.TRAIN.MODEL_PARAMS_CONFIG_FILE_NAME)
             with open(model_params_file_save_path, 'w', encoding='utf-8') as f_obj:
                 CFG.dump_to_json_file(f_obj)
             self._write_summary_op = tf.summary.merge(summary_merge_list)
-            self._val_write_summary_op = tf.summary.merge(val_summary_merge_list)
-            self._summary_writer = tf.summary.FileWriter(self._tboard_save_dir, graph=self._sess.graph)
+            self._val_write_summary_op = tf.summary.merge(
+                val_summary_merge_list)
+            self._summary_writer = tf.summary.FileWriter(
+                self._tboard_save_dir, graph=self._sess.graph)
 
         LOG.info('Initialize cityscapes sfnet multi gpu trainner complete')
 
@@ -317,8 +340,10 @@ class SFNetCityScapesMultiTrainer(object):
         :return:
         """
         with tf.variable_scope(name_or_scope=name):
-            factor = tf.math.pow(self._init_learning_rate / self._warmup_init_learning_rate, 1.0 / warmup_steps)
-            warmup_lr = self._warmup_init_learning_rate * tf.math.pow(factor, self._global_step)
+            factor = tf.math.pow(
+                self._init_learning_rate / self._warmup_init_learning_rate, 1.0 / warmup_steps)
+            warmup_lr = self._warmup_init_learning_rate * \
+                tf.math.pow(factor, self._global_step)
         return warmup_lr
 
     def _compute_net_gradients(self, images, labels, optimizer=None, is_net_first_initialized=False):
@@ -336,8 +361,9 @@ class SFNetCityScapesMultiTrainer(object):
             name='SFNet',
             reuse=is_net_first_initialized
         )
-        
-        var_list = tf.compat.v1.trainable_variables() if tf.__version__ == '1.15.0' else tf.trainable_variables()
+
+        var_list = tf.compat.v1.trainable_variables(
+        ) if tf.__version__ == '1.15.0' else tf.trainable_variables()
         if CFG.TRAIN.FREEZE_BN.ENABLE:
             train_var_list = [
                 v for v in var_list if 'beta' not in v.name and 'gamma' not in v.name
@@ -346,7 +372,8 @@ class SFNetCityScapesMultiTrainer(object):
             train_var_list = var_list
 
         if optimizer is not None:
-            grads = optimizer.compute_gradients(net_loss['total_loss'], var_list=train_var_list)
+            grads = optimizer.compute_gradients(
+                net_loss['total_loss'], var_list=train_var_list)
         else:
             grads = None
 
@@ -361,19 +388,23 @@ class SFNetCityScapesMultiTrainer(object):
         self._sess.run(tf.local_variables_initializer())
         if CFG.TRAIN.RESTORE_FROM_SNAPSHOT.ENABLE:
             try:
-                LOG.info('=> Restoring weights from: {:s} ... '.format(self._initial_weight))
+                LOG.info('=> Restoring weights from: {:s} ... '.format(
+                    self._initial_weight))
                 self._loader.restore(self._sess, self._initial_weight)
                 global_step_value = self._sess.run(self._global_step)
-                remain_epoch_nums = self._train_epoch_nums - math.floor(global_step_value / self._steps_per_epoch)
+                remain_epoch_nums = self._train_epoch_nums - \
+                    math.floor(global_step_value / self._steps_per_epoch)
                 epoch_start_pt = self._train_epoch_nums - remain_epoch_nums
             except OSError as e:
                 LOG.error(e)
-                LOG.info('=> {:s} does not exist !!!'.format(self._initial_weight))
+                LOG.info('=> {:s} does not exist !!!'.format(
+                    self._initial_weight))
                 LOG.info('=> Now it starts to train SFNet from scratch ...')
                 epoch_start_pt = 1
             except Exception as e:
                 LOG.error(e)
-                LOG.info('=> Can not load pretrained model weights: {:s}'.format(self._initial_weight))
+                LOG.info('=> Can not load pretrained model weights: {:s}'.format(
+                    self._initial_weight))
                 LOG.info('=> Now it starts to train SFNet from scratch ...')
                 epoch_start_pt = 1
         else:
@@ -399,9 +430,11 @@ class SFNetCityScapesMultiTrainer(object):
                     )
                     train_epoch_losses.append(train_step_loss)
                     train_epoch_mious.append(train_step_miou)
-                    self._summary_writer.add_summary(summary, global_step=global_step_val)
+                    self._summary_writer.add_summary(
+                        summary, global_step=global_step_val)
                     traindataset_pbar.set_description(
-                        'train loss: {:.5f}, miou: {:.5f}'.format(train_step_loss, train_step_miou)
+                        'train loss: {:.5f}, miou: {:.5f}'.format(
+                            train_step_loss, train_step_miou)
                     )
                 else:
                     _, summary, train_step_loss, global_step_val = self._sess.run(
@@ -411,7 +444,8 @@ class SFNetCityScapesMultiTrainer(object):
                         ]
                     )
                     train_epoch_losses.append(train_step_loss)
-                    self._summary_writer.add_summary(summary, global_step=global_step_val)
+                    self._summary_writer.add_summary(
+                        summary, global_step=global_step_val)
                     traindataset_pbar.set_description(
                         'train loss: {:.5f}'.format(train_step_loss)
                     )
@@ -438,9 +472,11 @@ class SFNetCityScapesMultiTrainer(object):
                         )
                         val_epoch_losses.append(val_step_loss)
                         val_epoch_mious.append(val_step_miou)
-                        self._summary_writer.add_summary(val_summary, global_step=val_global_step_val)
+                        self._summary_writer.add_summary(
+                            val_summary, global_step=val_global_step_val)
                         valdataset_pbar.set_description(
-                            'val loss: {:.5f}, val miou: {:.5f}'.format(val_step_loss, val_step_miou)
+                            'val loss: {:.5f}, val miou: {:.5f}'.format(
+                                val_step_loss, val_step_miou)
                         )
                     else:
                         val_summary, val_step_loss, val_global_step_val = self._sess.run(
@@ -450,7 +486,8 @@ class SFNetCityScapesMultiTrainer(object):
                             ]
                         )
                         val_epoch_losses.append(val_step_loss)
-                        self._summary_writer.add_summary(val_summary, global_step=val_global_step_val)
+                        self._summary_writer.add_summary(
+                            val_summary, global_step=val_global_step_val)
                         valdataset_pbar.set_description(
                             'val loss: {:.5f}'.format(val_step_loss)
                         )
@@ -466,28 +503,38 @@ class SFNetCityScapesMultiTrainer(object):
                     if len(best_model) < 10:
                         best_model.append(val_epoch_mious)
                         best_model = sorted(best_model)
-                        snapshot_model_name = 'cityscapes_val_miou={:.4f}.ckpt'.format(val_epoch_mious)
-                        snapshot_model_path = ops.join(self._model_save_dir, snapshot_model_name)
+                        snapshot_model_name = 'cityscapes_val_miou={:.4f}.ckpt'.format(
+                            val_epoch_mious)
+                        snapshot_model_path = ops.join(
+                            self._model_save_dir, snapshot_model_name)
                         os.makedirs(self._model_save_dir, exist_ok=True)
-                        self._saver.save(self._sess, snapshot_model_path, global_step=epoch)
+                        self._saver.save(
+                            self._sess, snapshot_model_path, global_step=epoch)
                     else:
                         best_model = sorted(best_model)
                         if val_epoch_mious > best_model[0]:
                             best_model[0] = val_epoch_mious
                             best_model = sorted(best_model)
-                            snapshot_model_name = 'cityscapes_val_miou={:.4f}.ckpt'.format(val_epoch_mious)
-                            snapshot_model_path = ops.join(self._model_save_dir, snapshot_model_name)
+                            snapshot_model_name = 'cityscapes_val_miou={:.4f}.ckpt'.format(
+                                val_epoch_mious)
+                            snapshot_model_path = ops.join(
+                                self._model_save_dir, snapshot_model_name)
                             os.makedirs(self._model_save_dir, exist_ok=True)
-                            self._saver.save(self._sess, snapshot_model_path, global_step=epoch)
+                            self._saver.save(
+                                self._sess, snapshot_model_path, global_step=epoch)
                         else:
                             pass
                 else:
-                    snapshot_model_name = 'cityscapes_val_loss={:.4f}.ckpt'.format(val_epoch_losses)
-                    snapshot_model_path = ops.join(self._model_save_dir, snapshot_model_name)
+                    snapshot_model_name = 'cityscapes_val_loss={:.4f}.ckpt'.format(
+                        val_epoch_losses)
+                    snapshot_model_path = ops.join(
+                        self._model_save_dir, snapshot_model_name)
                     os.makedirs(self._model_save_dir, exist_ok=True)
-                    self._saver.save(self._sess, snapshot_model_path, global_step=epoch)
+                    self._saver.save(
+                        self._sess, snapshot_model_path, global_step=epoch)
 
-            log_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+            log_time = time.strftime(
+                '%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
             if self._enable_miou and epoch % self._record_miou_epoch == 0:
                 LOG.info(
                     '=> Epoch: {:d} Time: {:s} Train loss: {:.5f} Train miou: {:.5f} '

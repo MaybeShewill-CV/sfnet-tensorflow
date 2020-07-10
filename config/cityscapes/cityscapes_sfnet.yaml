@@ -33,7 +33,7 @@ DATASET:
     PADDING_VALUE: [127.5, 127.5, 127.5]
     MEAN_VALUE: [0.5, 0.5, 0.5]
     STD_VALUE: [0.5, 0.5, 0.5]
-    CPU_MULTI_PROCESS_NUMS: 16
+    CPU_MULTI_PROCESS_NUMS: 8
 FREEZE:
     MODEL_FILENAME: 'model'
     PARAMS_FILENAME: 'params'
@@ -51,9 +51,9 @@ TRAIN:
         ENABLE: False
         SNAPSHOT_PATH: ''
     SNAPSHOT_EPOCH: 8
-    BATCH_SIZE: 16
+    BATCH_SIZE: 4
     VAL_BATCH_SIZE: 4
-    EPOCH_NUMS: 905
+    EPOCH_NUMS: 273
     WARM_UP:
         ENABLE: True
         EPOCH_NUMS: 8
@@ -64,10 +64,10 @@ TRAIN:
         EPOCH: 1
     MULTI_GPU:
         ENABLE: False
-        GPU_DEVICES: ['0', '1', '2', '3']
+        GPU_DEVICES: ['0', '1']
         CHIEF_DEVICE_INDEX: 0
 SOLVER:
-    LR: 0.05
+    LR: 0.01
     LR_POLICY: 'poly'
     LR_POLYNOMIAL_POWER: 0.9
     OPTIMIZER: 'sgd'
@@ -76,7 +76,7 @@ SOLVER:
     MOVING_AVE_DECAY: 0.9995
     LOSS_TYPE: 'cross_entropy'
     OHEM:
-        ENABLE: True
+        ENABLE: False
         SCORE_THRESH: 0.65
         MIN_SAMPLE_NUMS: 262144
 GPU:

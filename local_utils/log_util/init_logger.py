@@ -15,7 +15,7 @@ import loguru
 
 from local_utils.config_utils import parse_config_utils
 
-CFG = parse_config_utils.ilsvrc2012_cfg
+CFG = parse_config_utils.CITYSCAPES_CFG
 
 
 def get_logger(log_file_name_prefix):
@@ -24,7 +24,8 @@ def get_logger(log_file_name_prefix):
     :param log_file_name_prefix: log文件名前缀
     :return:
     """
-    start_time = time.strftime('%Y-%m-%d-%H-%M-%S', time.localtime(time.time()))
+    start_time = time.strftime(
+        '%Y-%m-%d-%H-%M-%S', time.localtime(time.time()))
     log_file_name = '{:s}_{:s}.log'.format(log_file_name_prefix, start_time)
     log_file_path = ops.join(CFG.LOG.SAVE_DIR, log_file_name)
 
