@@ -155,11 +155,18 @@ class _CityScapesTfWriter(object):
         os.makedirs(tfrecords_dir, exist_ok=True)
 
         LOG.info('Writing {:s}....'.format(tfrecords_path))
-
-        with tf.python_io.TFRecordWriter(tfrecords_path) as writer:
+        
+        if tf.__version__ == '1.15.0':
+            writer = tf.io.TFRecordWriter(tfrecords_path)
+        else:
+            writer = tf.python_io.TFRecordWriter(tfrecords_path)
+        with writer:
             for sample_path in sample_image_paths:
                 gt_src_image_path = sample_path[0]
                 gt_label_image_path = sample_path[1]
+
+                assert ops.exists(gt_src_image_path), '{:s} not exist'.format(gt_src_image_path)
+                assert ops.exists(gt_label_image_path), '{:s} not exist'.format(gt_label_image_path)
 
                 # prepare gt image
                 gt_image_raw = tf.gfile.FastGFile(
@@ -293,7 +300,7 @@ class _CityScapesTfReader(object):
                 # in memory. The parameter is the number of elements in the buffer. For
                 # completely uniform shuffling, set the parameter to be the same as the
                 # number of elements in the dataset.
-                dataset = dataset.shuffle(buffer_size=512)
+                dataset = dataset.shuffle(buffer_size=256)
                 # repeat num epochs
                 dataset = dataset.repeat(self._epoch_nums)
 
