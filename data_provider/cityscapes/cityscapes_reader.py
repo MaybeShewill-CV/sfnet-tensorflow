@@ -20,7 +20,6 @@ import matplotlib.pyplot as plt
 from local_utils.augment_utils.cityscapes import augmentation_utils as aug
 from local_utils.config_utils import parse_config_utils
 
-CFG = parse_config_utils.CITYSCAPES_CFG
 LABEL_CONTOURS = [(0, 0, 0),  # 0=road
                   # 1=sidewalk, 2=building, 3=wall, 4=fence, 5=pole
                   (128, 0, 0), (0, 128, 0), (128, 128,
@@ -40,14 +39,15 @@ class _CitySpacesDataset(object):
     cityscapes dataset
     """
 
-    def __init__(self, image_file_paths):
+    def __init__(self, image_file_paths, cfg):
         """
 
         :param image_file_paths:
         """
+        self._cfg = cfg
         self._image_file_paths = image_file_paths
-        self._epoch_nums = CFG.TRAIN.EPOCH_NUMS
-        self._batch_size = CFG.TRAIN.BATCH_SIZE
+        self._epoch_nums = self._cfg.TRAIN.EPOCH_NUMS
+        self._batch_size = self._cfg.TRAIN.BATCH_SIZE
         self._batch_count = 0
         self._sample_nums = len(image_file_paths)
         self._num_batchs = int(np.ceil(self._sample_nums / self._batch_size))
@@ -77,8 +77,7 @@ class _CitySpacesDataset(object):
 
         return src_images, label_images
 
-    @staticmethod
-    def _multiprocess_preprocess_images(src_images, label_images):
+    def _multiprocess_preprocess_images(self, src_images, label_images):
         """
 
         :param src_images:
@@ -90,7 +89,7 @@ class _CitySpacesDataset(object):
         output_src_images = []
         output_label_images = []
         resize_image_size = (
-            int(CFG.AUG.TRAIN_CROP_SIZE[0] / 2), int(CFG.AUG.TRAIN_CROP_SIZE[1] / 2))
+            int(self._cfg.AUG.TRAIN_CROP_SIZE[0] / 2), int(self._cfg.AUG.TRAIN_CROP_SIZE[1] / 2))
 
         for index, src_image in enumerate(src_images):
             output_src_image, output_label_image = aug.preprocess_image(
@@ -148,15 +147,16 @@ class CitySpacesReader(object):
     City spaces dataset reader
     """
 
-    def __init__(self):
+    def __init__(self, cfg):
         """
 
         """
-        self._dataset_dir = CFG.DATASET.DATA_DIR
-        self._batch_size = CFG.TRAIN.BATCH_SIZE
-        self._train_image_index_file_path = CFG.DATASET.TRAIN_FILE_LIST
-        self._val_image_index_file_path = CFG.DATASET.VAL_FILE_LIST
-        self._test_image_index_file_path = CFG.DATASET.TEST_FILE_LIST
+        self._cfg = cfg
+        self._dataset_dir = self._cfg.DATASET.DATA_DIR
+        self._batch_size = self._cfg.TRAIN.BATCH_SIZE
+        self._train_image_index_file_path = self._cfg.DATASET.TRAIN_FILE_LIST
+        self._val_image_index_file_path = self._cfg.DATASET.VAL_FILE_LIST
+        self._test_image_index_file_path = self._cfg.DATASET.TEST_FILE_LIST
 
         self._train_image_paths = []
         self._val_image_paths = []
@@ -167,13 +167,16 @@ class CitySpacesReader(object):
         np.random.shuffle(self._test_image_paths)
 
         self._train_dataset = _CitySpacesDataset(
-            image_file_paths=self._train_image_paths
+            image_file_paths=self._train_image_paths,
+            cfg=cfg
         )
         self._val_dataset = _CitySpacesDataset(
-            image_file_paths=self._val_image_paths
+            image_file_paths=self._val_image_paths,
+            cfg=cfg
         )
         self._test_dataset = _CitySpacesDataset(
-            image_file_paths=self._test_image_paths
+            image_file_paths=self._test_image_paths,
+            cfg=cfg
         )
 
     def _load_train_val_image_index(self):
@@ -290,7 +293,7 @@ def main():
     Returns:
         [type]: [description]
     """
-    reader = CitySpacesReader()
+    reader = CitySpacesReader(cfg=parse_config_utils.CITYSCAPES_CFG)
     train_dataset = reader.train_dataset
     val_dataset = reader.val_dataset
 
