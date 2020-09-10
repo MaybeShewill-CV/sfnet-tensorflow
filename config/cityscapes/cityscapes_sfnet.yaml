@@ -67,7 +67,7 @@ TRAIN:
         GPU_DEVICES: ['0', '1']
         CHIEF_DEVICE_INDEX: 0
 SOLVER:
-    LR: 0.01
+    LR: 0.005
     LR_POLICY: 'poly'
     LR_POLYNOMIAL_POWER: 0.9
     OPTIMIZER: 'sgd'
