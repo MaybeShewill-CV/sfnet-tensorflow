@@ -13,8 +13,6 @@ import math
 import tensorflow as tf
 import numpy as np
 
-TF_VERSION = tf.__version__
-
 
 class CNNBaseModel(object):
     """
@@ -44,10 +42,7 @@ class CNNBaseModel(object):
         :param data_format: default set to NHWC according tensorflow
         :return: tf.Tensor named ``output``
         """
-        if tf.__version__ == '1.15.0':
-            vars_scope = tf.compat.v1.variable_scope(name_or_scope=name)
-        else:
-            vars_scope = tf.variable_scope(name_or_scope=name)
+        vars_scope = tf.variable_scope(name_or_scope=name)
         with vars_scope:
             in_shape = inputdata.get_shape().as_list()
             channel_axis = 3 if data_format == 'NHWC' else 1
@@ -73,19 +68,12 @@ class CNNBaseModel(object):
                     else [1, 1, stride, stride]
 
             if w_init is None:
-                if TF_VERSION == '1.15.0':
-                    w_init = tf.variance_scaling_initializer()
-                else:
-                    w_init = tf.contrib.layers.variance_scaling_initializer()
+                w_init = tf.contrib.layers.variance_scaling_initializer()
                 # w_init = initializers.xavier_initializer()
             if b_init is None:
                 b_init = tf.constant_initializer()
 
-            if TF_VERSION == '1.15.0':
-                w = tf.compat.v1.get_variable(
-                    'W', filter_shape, initializer=w_init)
-            else:
-                w = tf.get_variable('W', filter_shape, initializer=w_init)
+            w = tf.get_variable('W', filter_shape, initializer=w_init)
             b = None
 
             if use_bias:
@@ -120,10 +108,7 @@ class CNNBaseModel(object):
         :param stride:
         :return:
         """
-        if tf.__version__ == '1.15.0':
-            vars_scope = tf.compat.v1.variable_scope(name_or_scope=name)
-        else:
-            vars_scope = tf.variable_scope(name_or_scope=name)
+        vars_scope = tf.variable_scope(name_or_scope=name)
         with vars_scope:
             in_shape = input_tensor.get_shape().as_list()
             in_channel = in_shape[3]
@@ -133,10 +118,7 @@ class CNNBaseModel(object):
                 kernel_size, kernel_size] + [in_channel, depth_multiplier]
             pointwise_filter_shape = [
                 1, 1, in_channel * depth_multiplier, output_channels]
-            if TF_VERSION == '1.15.0':
-                w_init = tf.variance_scaling_initializer()
-            else:
-                w_init = tf.contrib.layers.variance_scaling_initializer()
+            w_init = tf.contrib.layers.variance_scaling_initializer()
 
             depthwise_filter = tf.get_variable(
                 name='depthwise_filter_w', shape=depthwise_filter_shape,
@@ -171,10 +153,7 @@ class CNNBaseModel(object):
         :param stride:
         :return:
         """
-        if tf.__version__ == '1.15.0':
-            vars_scope = tf.compat.v1.variable_scope(name_or_scope=name)
-        else:
-            vars_scope = tf.variable_scope(name_or_scope=name)
+        vars_scope = tf.variable_scope(name_or_scope=name)
         with vars_scope:
             in_shape = input_tensor.get_shape().as_list()
             in_channel = in_shape[3]
@@ -182,10 +161,7 @@ class CNNBaseModel(object):
 
             depthwise_filter_shape = [
                 kernel_size, kernel_size] + [in_channel, depth_multiplier]
-            if TF_VERSION == '1.15.0':
-                w_init = tf.variance_scaling_initializer()
-            else:
-                w_init = tf.contrib.layers.variance_scaling_initializer()
+            w_init = tf.contrib.layers.variance_scaling_initializer()
 
             depthwise_filter = tf.get_variable(
                 name='depthwise_filter_w', shape=depthwise_filter_shape,
@@ -253,16 +229,10 @@ class CNNBaseModel(object):
             strides = [1, stride, stride, 1] if data_format == 'NHWC' \
                 else [1, 1, stride, stride]
 
-        if TF_VERSION == '1.15.0':
-            return tf.nn.max_pool2d(
-                input=inputdata, ksize=kernel, strides=strides, padding=padding,
-                data_format=data_format, name=name
-            )
-        else:
-            return tf.nn.max_pool(
-                value=inputdata, ksize=kernel, strides=strides, padding=padding,
-                data_format=data_format, name=name
-            )
+        return tf.nn.max_pool(
+            value=inputdata, ksize=kernel, strides=strides, padding=padding,
+            data_format=data_format, name=name
+        )
 
     @staticmethod
     def avgpooling(inputdata, kernel_size, stride=None, padding='VALID',
@@ -400,10 +370,7 @@ class CNNBaseModel(object):
         :param noise_shape:
         :return:
         """
-        if tf.__version__ == '1.15.0':
-            vars_scope = tf.compat.v1.variable_scope(name_or_scope=name)
-        else:
-            vars_scope = tf.variable_scope(name_or_scope=name)
+        vars_scope = tf.variable_scope(name_or_scope=name)
         with vars_scope:
             output_tensor = tf.cond(
                 pred=is_trainning,
@@ -437,10 +404,7 @@ class CNNBaseModel(object):
                 [tf.shape(inputdata)[0], -1]))
 
         if w_init is None:
-            if TF_VERSION == '1.15.0':
-                w_init = tf.variance_scaling_initializer()
-            else:
-                w_init = tf.contrib.layers.variance_scaling_initializer()
+            w_init = tf.contrib.layers.variance_scaling_initializer()
         if b_init is None:
             b_init = tf.constant_initializer()
 
@@ -478,10 +442,7 @@ class CNNBaseModel(object):
         :param scale:
         :return:
         """
-        if tf.__version__ == '1.15.0':
-            vars_scope = tf.compat.v1.variable_scope(name_or_scope=name)
-        else:
-            vars_scope = tf.variable_scope(name_or_scope=name)
+        vars_scope = tf.variable_scope(name_or_scope=name)
         with vars_scope:
             input_channels = input_tensor.get_shape().as_list()[-1]
 
@@ -554,10 +515,7 @@ class CNNBaseModel(object):
         :param esp:
         :return:
         """
-        if tf.__version__ == '1.15.0':
-            vars_scope = tf.compat.v1.variable_scope(name_or_scope=name)
-        else:
-            vars_scope = tf.variable_scope(name_or_scope=name)
+        vars_scope = tf.variable_scope(name_or_scope=name)
         with vars_scope:
             inputdata = tf.transpose(inputdata, [0, 3, 1, 2])
             n, c, h, w = inputdata.get_shape().as_list()
@@ -612,12 +570,10 @@ class CNNBaseModel(object):
         :param activation: whether to apply a activation func to deconv result
         :param use_bias:  whether to use bias.
         :param data_format: default set to NHWC according tensorflow
+        :param trainable:
         :return: tf.Tensor named ``output``
         """
-        if tf.__version__ == '1.15.0':
-            vars_scope = tf.compat.v1.variable_scope(name_or_scope=name)
-        else:
-            vars_scope = tf.variable_scope(name_or_scope=name)
+        vars_scope = tf.variable_scope(name_or_scope=name)
         with vars_scope:
             in_shape = inputdata.get_shape().as_list()
             channel_axis = 3 if data_format == 'channels_last' else 1
@@ -627,10 +583,7 @@ class CNNBaseModel(object):
             padding = padding.upper()
 
             if w_init is None:
-                if TF_VERSION == '1.15.0':
-                    w_init = tf.variance_scaling_initializer()
-                else:
-                    w_init = tf.contrib.layers.variance_scaling_initializer()
+                w_init = tf.contrib.layers.variance_scaling_initializer()
             if b_init is None:
                 b_init = tf.constant_initializer()
 
@@ -660,10 +613,7 @@ class CNNBaseModel(object):
         :param name:
         :return:
         """
-        if tf.__version__ == '1.15.0':
-            vars_scope = tf.compat.v1.variable_scope(name_or_scope=name)
-        else:
-            vars_scope = tf.variable_scope(name_or_scope=name)
+        vars_scope = tf.variable_scope(name_or_scope=name)
         with vars_scope:
             in_shape = input_tensor.get_shape().as_list()
             in_channel = in_shape[3]
@@ -677,10 +627,7 @@ class CNNBaseModel(object):
                 filter_shape = [k_size, k_size] + [in_channel, out_dims]
 
             if w_init is None:
-                if TF_VERSION == '1.15.0':
-                    w_init = tf.variance_scaling_initializer()
-                else:
-                    w_init = tf.contrib.layers.variance_scaling_initializer()
+                w_init = tf.contrib.layers.variance_scaling_initializer()
             if b_init is None:
                 b_init = tf.constant_initializer()
 
@@ -721,10 +668,7 @@ class CNNBaseModel(object):
         def f2():
             return input_tensor
 
-        if tf.__version__ == '1.15.0':
-            vars_scope = tf.compat.v1.variable_scope(name_or_scope=name)
-        else:
-            vars_scope = tf.variable_scope(name_or_scope=name)
+        vars_scope = tf.variable_scope(name_or_scope=name)
         with vars_scope:
             output = tf.cond(is_training, f1, f2)
             return output
@@ -738,10 +682,7 @@ class CNNBaseModel(object):
         :param name:
         :return:
         """
-        if tf.__version__ == '1.15.0':
-            vars_scope = tf.compat.v1.variable_scope(name_or_scope=name)
-        else:
-            vars_scope = tf.variable_scope(name_or_scope=name)
+        vars_scope = tf.variable_scope(name_or_scope=name)
         with vars_scope:
             return tf.nn.relu(inputdata) - alpha * tf.nn.relu(-inputdata)
 
@@ -755,10 +696,7 @@ class CNNBaseModel(object):
         :param name:
         :return:
         """
-        if tf.__version__ == '1.15.0':
-            vars_scope = tf.compat.v1.variable_scope(name_or_scope=name)
-        else:
-            vars_scope = tf.variable_scope(name_or_scope=name)
+        vars_scope = tf.variable_scope(name_or_scope=name)
         with vars_scope:
             epsilon = 1e-7
             y_pred = tf.clip_by_value(y_pred, epsilon, 1. - epsilon)
@@ -781,10 +719,7 @@ class CNNBaseModel(object):
         :param name:
         :return:
         """
-        if tf.__version__ == '1.15.0':
-            vars_scope = tf.compat.v1.variable_scope(name_or_scope=name)
-        else:
-            vars_scope = tf.variable_scope(name_or_scope=name)
+        vars_scope = tf.variable_scope(name_or_scope=name)
         with vars_scope:
             smooth = 1.
             w, m1, m2 = weight * weight, y_true, y_pred
@@ -800,14 +735,11 @@ class CNNBaseModel(object):
         """
         :param inputdata:
         :param paddings:
+        :param name:
         :return:
         """
-        if TF_VERSION == '1.15.0':
-            with tf.compat.v1.variable_scope(name_or_scope=name):
-                return tf.pad(tensor=inputdata, paddings=paddings)
-        else:
-            with tf.variable_scope(name_or_scope=name):
-                return tf.pad(tensor=inputdata, paddings=paddings)
+        with tf.variable_scope(name_or_scope=name):
+            return tf.pad(tensor=inputdata, paddings=paddings)
 
     @staticmethod
     def spatial_pyramid_pool(input_tensor, out_pool_size, name, mode='avg_pool'):
@@ -821,6 +753,7 @@ class CNNBaseModel(object):
             [description]
         name : [type]
             [description]
+        mode:
 
         Returns
         -------
@@ -828,10 +761,7 @@ class CNNBaseModel(object):
             [description]
         """
         [_, in_height, in_width, _] = input_tensor.get_shape().as_list()
-        if tf.__version__ == '1.15.0':
-            vars_scope = tf.compat.v1.variable_scope(name_or_scope=name)
-        else:
-            vars_scope = tf.variable_scope(name_or_scope=name)
+        vars_scope = tf.variable_scope(name_or_scope=name)
         with vars_scope:
             h_strd = h_size = math.ceil(float(in_height) / out_pool_size)
             w_strd = w_size = math.ceil(float(in_width) / out_pool_size)
@@ -840,39 +770,21 @@ class CNNBaseModel(object):
             new_input_tensor = tf.pad(input_tensor, tf.constant(
                 [[0, 0], [0, pad_h], [0, pad_w], [0, 0]]))
             if mode == 'max_pool':
-                if TF_VERSION == '1.15.0':
-                    output_tensor = tf.nn.max_pool2d(
-                        input=new_input_tensor,
-                        ksize=[1, h_size, h_size, 1],
-                        strides=[1, h_strd, w_strd, 1],
-                        padding='SAME',
-                        name='max_pool2d'
-                    )
-                else:
-                    output_tensor = tf.nn.max_pool(
-                        new_input_tensor,
-                        ksize=[1, h_size, h_size, 1],
-                        strides=[1, h_strd, w_strd, 1],
-                        padding='SAME',
-                        name='max_pool2d'
-                    )
+                output_tensor = tf.nn.max_pool(
+                    new_input_tensor,
+                    ksize=[1, h_size, h_size, 1],
+                    strides=[1, h_strd, w_strd, 1],
+                    padding='SAME',
+                    name='max_pool2d'
+                )
             elif mode == 'avg_pool':
-                if TF_VERSION == '1.15.0':
-                    output_tensor = tf.nn.avg_pool2d(
-                        new_input_tensor,
-                        ksize=[1, h_size, h_size, 1],
-                        strides=[1, h_strd, w_strd, 1],
-                        padding='SAME',
-                        name='avg_pool2d'
-                    )
-                else:
-                    output_tensor = tf.nn.avg_pool(
-                        value=new_input_tensor,
-                        ksize=[1, h_size, h_size, 1],
-                        strides=[1, h_strd, w_strd, 1],
-                        padding='SAME',
-                        name='avg_pool2d'
-                    )
+                output_tensor = tf.nn.avg_pool(
+                    value=new_input_tensor,
+                    ksize=[1, h_size, h_size, 1],
+                    strides=[1, h_strd, w_strd, 1],
+                    padding='SAME',
+                    name='avg_pool2d'
+                )
             else:
-                raise ValueError('Not support pool mode')
+                raise ValueError('Not support pool mode： {:s}'.format(mode))
         return output_tensor

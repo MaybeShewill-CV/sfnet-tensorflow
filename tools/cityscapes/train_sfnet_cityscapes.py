@@ -24,10 +24,10 @@ def train_model():
     """
     if CFG.TRAIN.MULTI_GPU.ENABLE:
         LOG.info('Using multi gpu trainner ...')
-        worker = multi_gpu_trainner.SFNetCityScapesMultiTrainer()
+        worker = multi_gpu_trainner.SFNetCityScapesMultiTrainer(cfg=CFG)
     else:
         LOG.info('Using single gpu trainner ...')
-        worker = single_gpu_trainner.SFNetCityScapesTrainer()
+        worker = single_gpu_trainner.SFNetCityScapesTrainer(cfg=CFG)
 
     worker.train()
     return

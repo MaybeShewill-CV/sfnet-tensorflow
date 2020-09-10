@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 #
-# Copyright (c) 2020 Baidu.com, Inc. All Rights Reserved
-#
 # Author: MaybeShewill-CV
 # Date: 2020/04/15
 #

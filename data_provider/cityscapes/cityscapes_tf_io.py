@@ -22,7 +22,6 @@ import tensorflow as tf
 from local_utils.augment_utils.cityscapes import augmentation_tf_utils as aug
 from local_utils.config_utils import parse_config_utils
 
-CFG = parse_config_utils.CITYSCAPES_CFG
 LOG = loguru.logger
 LABEL_CONTOURS = [(0, 0, 0),  # 0=road
                   # 1=sidewalk, 2=building, 3=wall, 4=fence, 5=pole
@@ -66,16 +65,17 @@ class _CityScapesTfWriter(object):
 
     """
 
-    def __init__(self):
+    def __init__(self, cfg):
         """
 
         """
-        self._dataset_dir = CFG.DATASET.DATA_DIR
+        self._cfg = cfg
+        self._dataset_dir = self._cfg.DATASET.DATA_DIR
         self._tfrecords_dir = ops.join(self._dataset_dir, 'tfrecords')
         os.makedirs(self._tfrecords_dir, exist_ok=True)
-        self._train_image_index_file_path = CFG.DATASET.TRAIN_FILE_LIST
-        self._val_image_index_file_path = CFG.DATASET.VAL_FILE_LIST
-        self._test_image_index_file_path = CFG.DATASET.TEST_FILE_LIST
+        self._train_image_index_file_path = self._cfg.DATASET.TRAIN_FILE_LIST
+        self._val_image_index_file_path = self._cfg.DATASET.VAL_FILE_LIST
+        self._test_image_index_file_path = self._cfg.DATASET.TEST_FILE_LIST
 
         self._train_image_paths = []
         self._val_image_paths = []
@@ -155,11 +155,8 @@ class _CityScapesTfWriter(object):
         os.makedirs(tfrecords_dir, exist_ok=True)
 
         LOG.info('Writing {:s}....'.format(tfrecords_path))
-        
-        if tf.__version__ == '1.15.0':
-            writer = tf.io.TFRecordWriter(tfrecords_path)
-        else:
-            writer = tf.python_io.TFRecordWriter(tfrecords_path)
+
+        writer = tf.python_io.TFRecordWriter(tfrecords_path)
         with writer:
             for sample_path in sample_image_paths:
                 gt_src_image_path = sample_path[0]
@@ -221,17 +218,18 @@ class _CityScapesTfReader(object):
 
     """
 
-    def __init__(self, dataset_flag):
+    def __init__(self, dataset_flag, cfg):
         """
 
         :return:
         """
-        self._dataset_dir = CFG.DATASET.DATA_DIR
+        self._cfg = cfg
+        self._dataset_dir = self._cfg.DATASET.DATA_DIR
         self._tfrecords_dir = ops.join(self._dataset_dir, 'tfrecords')
-        self._epoch_nums = CFG.TRAIN.EPOCH_NUMS
-        self._train_batch_size = CFG.TRAIN.BATCH_SIZE
-        self._val_batch_size = CFG.TRAIN.VAL_BATCH_SIZE
-        assert ops.exists(self._tfrecords_dir)
+        self._epoch_nums = self._cfg.TRAIN.EPOCH_NUMS
+        self._train_batch_size = self._cfg.TRAIN.BATCH_SIZE
+        self._val_batch_size = self._cfg.TRAIN.VAL_BATCH_SIZE
+        assert ops.exists(self._tfrecords_dir), '{:s} not exist'.format(self._tfrecords_dir)
 
         self._dataset_flags = dataset_flag.lower()
         if self._dataset_flags not in ['train', 'val']:
@@ -283,17 +281,17 @@ class _CityScapesTfReader(object):
                 # of the dataset.
                 dataset = dataset.map(
                     map_func=aug.decode,
-                    num_parallel_calls=CFG.DATASET.CPU_MULTI_PROCESS_NUMS
+                    num_parallel_calls=self._cfg.DATASET.CPU_MULTI_PROCESS_NUMS
                 )
                 if self._dataset_flags == 'train':
                     dataset = dataset.map(
                         map_func=aug.preprocess_image_for_train,
-                        num_parallel_calls=CFG.DATASET.CPU_MULTI_PROCESS_NUMS
+                        num_parallel_calls=self._cfg.DATASET.CPU_MULTI_PROCESS_NUMS
                     )
                 elif self._dataset_flags == 'val':
                     dataset = dataset.map(
                         map_func=aug.preprocess_image_for_val,
-                        num_parallel_calls=CFG.DATASET.CPU_MULTI_PROCESS_NUMS
+                        num_parallel_calls=self._cfg.DATASET.CPU_MULTI_PROCESS_NUMS
                     )
 
                 # The shuffle transformation uses a finite-sized buffer to shuffle elements
@@ -305,7 +303,9 @@ class _CityScapesTfReader(object):
                 dataset = dataset.repeat(self._epoch_nums)
 
                 dataset = dataset.batch(
-                    batch_size=batch_size, drop_remainder=True)
+                    batch_size=batch_size,
+                    drop_remainder=True
+                )
                 dataset = dataset.prefetch(buffer_size=batch_size * 16)
 
                 iterator = dataset.make_one_shot_iterator()
@@ -318,13 +318,13 @@ class CityScapesTfIO(object):
 
     """
 
-    def __init__(self):
+    def __init__(self, cfg):
         """
 
         """
-        self._writer = _CityScapesTfWriter()
-        self._train_dataset_reader = _CityScapesTfReader(dataset_flag='train')
-        self._val_dataset_reader = _CityScapesTfReader(dataset_flag='val')
+        self._writer = _CityScapesTfWriter(cfg=cfg)
+        self._train_dataset_reader = _CityScapesTfReader(dataset_flag='train', cfg=cfg)
+        self._val_dataset_reader = _CityScapesTfReader(dataset_flag='val', cfg=cfg)
 
     @property
     def writer(self):
@@ -386,7 +386,7 @@ def main():
     [type]
         [description]
     """
-    io = CityScapesTfIO()
+    io = CityScapesTfIO(cfg=parse_config_utils.CITYSCAPES_CFG)
     src_images, label_images = io.train_dataset_reader.next_batch(batch_size=4)
     relu_ret = tf.nn.relu(src_images)
 
@@ -400,15 +400,15 @@ def main():
                 print('Iter: {:d}, cost time: {:.5f}s'.format(
                     count, time.time() - t_start))
                 count += 1
-                src_image = np.array((images[0] + 1.0) * 127.5, dtype=np.uint8)
-                print(labels[0].shape)
-                color_mask_image = decode_inference_prediction(mask=labels[0])
-
-                plt.figure('src')
-                plt.imshow(src_image)
-                plt.figure('label')
-                plt.imshow(color_mask_image)
-                plt.show()
+                # src_image = np.array((images[0] + 1.0) * 127.5, dtype=np.uint8)
+                # print(labels[0].shape)
+                # color_mask_image = decode_inference_prediction(mask=labels[0])
+                #
+                # plt.figure('src')
+                # plt.imshow(src_image)
+                # plt.figure('label')
+                # plt.imshow(color_mask_image)
+                # plt.show()
             except tf.errors.OutOfRangeError as err:
                 print(err)
 

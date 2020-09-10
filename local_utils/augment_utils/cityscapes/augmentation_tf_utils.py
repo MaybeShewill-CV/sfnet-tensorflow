@@ -35,11 +35,23 @@ def decode(serialized_example):
     # decode gt image
     gt_image = tf.image.decode_png(features['gt_src_image_raw'], channels=3)
     gt_image = tf.reshape(gt_image, shape=[1024, 2048, 3])
+    gt_image = tf.image.resize_bilinear(
+        images=tf.expand_dims(gt_image, axis=0),
+        size=(512, 1024),
+        align_corners=True
+    )
+    gt_image = tf.squeeze(gt_image, axis=0)
 
     # decode gt binary image
     gt_binary_image = tf.image.decode_png(
         features['gt_label_image_raw'], channels=1)
     gt_binary_image = tf.reshape(gt_binary_image, shape=[1024, 2048, 1])
+    gt_binary_image = tf.image.resize_nearest_neighbor(
+        images=tf.expand_dims(gt_binary_image, axis=0),
+        size=(512, 1024),
+        align_corners=True
+    )
+    gt_binary_image = tf.squeeze(gt_binary_image, axis=0)
 
     return gt_image, gt_binary_image
 

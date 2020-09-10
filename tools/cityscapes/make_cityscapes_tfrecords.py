@@ -10,8 +10,10 @@ Generate cityscapes tfrecords tools
 """
 from data_provider.cityscapes import cityscapes_tf_io
 from local_utils.log_util import init_logger
+from local_utils.config_utils import parse_config_utils
 
 LOG = init_logger.get_logger(log_file_name_prefix='generate_cityscapes_tfrecords')
+CFG = parse_config_utils.CITYSCAPES_CFG
 
 
 def generate_tfrecords():
@@ -19,7 +21,7 @@ def generate_tfrecords():
 
     :return:
     """
-    io = cityscapes_tf_io.CityScapesTfIO()
+    io = cityscapes_tf_io.CityScapesTfIO(cfg=CFG)
     io.writer.write_tfrecords()
 
     return

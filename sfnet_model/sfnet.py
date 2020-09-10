@@ -20,14 +20,9 @@ CFG = parse_config_utils.CITYSCAPES_CFG
 
 
 class _FAMModule(cnn_basenet.CNNBaseModel):
-    """Flow alignment module for sfnet mode
-
-    Parameters
-    ----------
-    cnn_basenet : [type]
-        [description]
     """
-
+    Flow alignment module for sfnet mode
+    """
     def __init__(self, phase):
         """init function
 
@@ -65,11 +60,7 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
         :param use_bias:
         :return:
         """
-        if tf.__version__ == '1.15.0':
-            vars_scope = tf.compat.v1.variable_scope(name_or_scope=name)
-        else:
-            vars_scope = tf.variable_scope(name_or_scope=name)
-        with vars_scope:
+        with tf.variable_scope(name_or_scope=name):
             result = self.conv2d(
                 inputdata=input_tensor,
                 out_channel=output_channels,
@@ -195,11 +186,7 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
         if 'padding' in kwargs:
             self._padding = kwargs['padding']
         [_, low_height, low_width, _] = input_tensor_low.get_shape().as_list()
-        if tf.__version__ == '1.15.0':
-            vars_scope = tf.compat.v1.variable_scope(name_or_scope=name_scope)
-        else:
-            vars_scope = tf.variable_scope(name_or_scope=name_scope)
-        with vars_scope:
+        with tf.variable_scope(name_or_scope=name_scope):
             # project input_tensor_low
             input_tensor_low = self.conv2d(
                 inputdata=input_tensor_low,
@@ -220,20 +207,12 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
                 use_bias=False,
                 name='upsample_conv_1x1'
             )
-            if tf.__version__ == '1.15.0':
-                tensor_upsample = tf.compat.v1.image.resize_bilinear(
-                    images=tensor_upsample,
-                    size=(low_height, low_width),
-                    align_corners=True,
-                    name='upsampled_high_features'
-                )
-            else:
-                tensor_upsample = tf.image.resize_bilinear(
-                    images=tensor_upsample,
-                    size=(low_height, low_width),
-                    align_corners=True,
-                    name='upsampled_high_features'
-                )
+            tensor_upsample = tf.image.resize_bilinear(
+                images=tensor_upsample,
+                size=(low_height, low_width),
+                align_corners=True,
+                name='upsampled_high_features'
+            )
             # generate grid
             input_tensor_low_project = self.conv2d(
                 inputdata=input_tensor_low,
@@ -279,14 +258,9 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
 
 
 class _PPModule(cnn_basenet.CNNBaseModel):
-    """Pyramid Pooling Module
-
-    Parameters
-    ----------
-    cnn_basenet : [type]
-        [description]
     """
-
+    Pyramid Pooling Module
+    """
     def __init__(self, phase):
         """init function
 
@@ -324,11 +298,7 @@ class _PPModule(cnn_basenet.CNNBaseModel):
         :param use_bias:
         :return:
         """
-        if tf.__version__ == '1.15.0':
-            vars_scope = tf.compat.v1.variable_scope(name_or_scope=name)
-        else:
-            vars_scope = tf.variable_scope(name_or_scope=name)
-        with vars_scope:
+        with tf.variable_scope(name_or_scope=name):
             result = self.conv2d(
                 inputdata=input_tensor,
                 out_channel=output_channels,
@@ -357,11 +327,7 @@ class _PPModule(cnn_basenet.CNNBaseModel):
         [_, in_height, in_width, in_channels] = input_tensor.get_shape().as_list()
         ppm_features = [input_tensor]
         ppm_levels = len(output_pool_sizes)
-        if tf.__version__ == '1.15.0':
-            vars_scope = tf.compat.v1.variable_scope(name_or_scope=name_scope)
-        else:
-            vars_scope = tf.variable_scope(name_or_scope=name_scope)
-        with vars_scope:
+        with tf.variable_scope(name_or_scope=name_scope):
             for output_pool_size in output_pool_sizes:
                 ppm_feature = self.spatial_pyramid_pool(
                     input_tensor=input_tensor,
@@ -379,18 +345,11 @@ class _PPModule(cnn_basenet.CNNBaseModel):
                     use_bias=False,
                     need_activate=True
                 )
-                if tf.__version__ == '1.15.0':
-                    ppm_feature = tf.compat.v1.image.resize_bilinear(
-                        images=ppm_feature,
-                        size=(in_height, in_width),
-                        name='ppm_pool_size_{:d}_upsample'.format(output_pool_size)
-                    )
-                else:
-                    ppm_feature = tf.image.resize_bilinear(
-                        images=ppm_feature,
-                        size=(in_height, in_width),
-                        name='ppm_pool_size_{:d}_upsample'.format(output_pool_size)
-                    )
+                ppm_feature = tf.image.resize_bilinear(
+                    images=ppm_feature,
+                    size=(in_height, in_width),
+                    name='ppm_pool_size_{:d}_upsample'.format(output_pool_size)
+                )
                 ppm_features.append(ppm_feature)
 
             output_tensor = tf.concat(ppm_features, axis=-1, name='ppm_output')
@@ -491,28 +450,18 @@ class _SegmentationHead(cnn_basenet.CNNBaseModel):
                 use_bias=False,
                 name='1x1_conv_block'
             )
-            if tf.__version__ == '1.15.0':
-                result = tf.compat.v1.image.resize_bilinear(
-                    result,
-                    output_tensor_size,
-                    name='segmentation_head_logits'
-                )
-            else:
-                result = tf.image.resize_bilinear(
-                    result,
-                    output_tensor_size,
-                    name='segmentation_head_logits'
-                )
+            result = tf.image.resize_bilinear(
+                result,
+                output_tensor_size,
+                name='segmentation_head_logits'
+            )
         return result
 
 
 class SFNet(cnn_basenet.CNNBaseModel):
-    """Semantic flow Net
-
-    Args:
-        cnn_basenet ([type]): [description]
     """
-
+    Semantic flow Net
+    """
     def __init__(self, phase, cfg):
         """init net
 
@@ -612,24 +561,14 @@ class SFNet(cnn_basenet.CNNBaseModel):
             input_tensor (tensor): input tf tensor
             reuse (bool): if reuse vars
         """
-        if tf.__version__ == '1.15.0':
-            encode_vars_scope = tf.compat.v1.variable_scope(
-                name_or_scope='encoder')
-        else:
-            encode_vars_scope = tf.variable_scope(name_or_scope='encoder')
-        with encode_vars_scope:
+        with tf.variable_scope(name_or_scope='encoder'):
             encoded_features = self._basenet.inference(
                 input_tensor=input_tensor,
                 name='Resnet_Backbone',
                 reuse=reuse
             )
         decoded_features = collections.OrderedDict()
-        if tf.__version__ == '1.15.0':
-            decode_vars_scope = tf.compat.v1.variable_scope(
-                name_or_scope='decoder')
-        else:
-            decode_vars_scope = tf.variable_scope(name_or_scope='decoder')
-        with decode_vars_scope:
+        with tf.variable_scope(name_or_scope='decoder'):
             # first apply ppm
             encoded_final_features = self.conv2d(
                 inputdata=encoded_features['stage_4'],
@@ -704,12 +643,7 @@ class SFNet(cnn_basenet.CNNBaseModel):
             name ([type]): [description]
             reuse (bool, optional): [description]. Defaults to False.
         """
-        if tf.__version__ == '1.15.0':
-            vars_scope = tf.compat.v1.variable_scope(
-                name_or_scope=name, reuse=reuse)
-        else:
-            vars_scope = tf.variable_scope(name_or_scope=name, reuse=reuse)
-        with vars_scope:
+        with tf.variable_scope(name_or_scope=name, reuse=reuse):
             net_features = self.build_model(
                 input_tensor=input_tensor,
                 reuse=reuse
@@ -735,12 +669,7 @@ class SFNet(cnn_basenet.CNNBaseModel):
             name ([type]): [description]
             reuse (bool, optional): [description]. Defaults to False.
         """
-        if tf.__version__ == '1.15.0':
-            vars_scope = tf.compat.v1.variable_scope(
-                name_or_scope=name, reuse=reuse)
-        else:
-            vars_scope = tf.variable_scope(name_or_scope=name, reuse=reuse)
-        with vars_scope:
+        with tf.variable_scope(name_or_scope=name, reuse=reuse):
             net_features = self.build_model(
                 input_tensor=input_tensor,
                 reuse=reuse
@@ -758,7 +687,7 @@ class SFNet(cnn_basenet.CNNBaseModel):
                 class_nums=self._class_nums,
                 name='cross_entropy_loss'
             )
-            var_list = tf.compat.v1.trainable_variables() if tf.__version__ == '1.15.0' else tf.trainable_variables()
+            var_list = tf.trainable_variables()
             l2_reg_loss = self._compute_l2_reg_loss(
                 var_list=var_list,
                 weights_decay=self._weights_decay,
@@ -797,9 +726,9 @@ def main():
     for loss_name, loss_t in loss_set.items():
         print('Loss: {:s}, {}'.format(loss_name, loss_t))
     
-    sess = tf.compat.v1.Session() if tf.__version__ == '1.15.0' else tf.Session()
+    sess = tf.Session()
     with sess.as_default():
-        init_op = tf.compat.v1.global_variables_initializer() if tf.__version__ == '1.15.0' else tf.global_variables_initializer()
+        init_op = tf.global_variables_initializer()
         sess.run(init_op)
 
         loop_times = 500
