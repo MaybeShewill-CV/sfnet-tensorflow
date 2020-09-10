@@ -37,7 +37,7 @@ class SFNetCityScapesMultiTrainer(object):
         """
         self._cfg = cfg
         # define solver params and dataset
-        self._cityscapes_io = cityscapes_tf_io.CityScapesTfIO()
+        self._cityscapes_io = cityscapes_tf_io.CityScapesTfIO(cfg=cfg)
         self._train_dataset = self._cityscapes_io.train_dataset_reader
         self._val_dataset = self._cityscapes_io.val_dataset_reader
         self._steps_per_epoch = len(self._train_dataset)
@@ -56,7 +56,6 @@ class SFNetCityScapesMultiTrainer(object):
         self._enable_miou = self._cfg.TRAIN.COMPUTE_MIOU.ENABLE
         if self._enable_miou:
             self._record_miou_epoch = self._cfg.TRAIN.COMPUTE_MIOU.EPOCH
-        self._input_tensor_size = [int(tmp) for tmp in self._cfg.AUG.TRAIN_CROP_SIZE]
         self._gpu_devices = self._cfg.TRAIN.MULTI_GPU.GPU_DEVICES
         self._gpu_nums = len(self._gpu_devices)
         self._chief_gpu_index = self._cfg.TRAIN.MULTI_GPU.CHIEF_DEVICE_INDEX

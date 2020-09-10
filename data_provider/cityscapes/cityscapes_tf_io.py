@@ -155,11 +155,8 @@ class _CityScapesTfWriter(object):
         os.makedirs(tfrecords_dir, exist_ok=True)
 
         LOG.info('Writing {:s}....'.format(tfrecords_path))
-        
-        if tf.__version__ == '1.15.0':
-            writer = tf.io.TFRecordWriter(tfrecords_path)
-        else:
-            writer = tf.python_io.TFRecordWriter(tfrecords_path)
+
+        writer = tf.python_io.TFRecordWriter(tfrecords_path)
         with writer:
             for sample_path in sample_image_paths:
                 gt_src_image_path = sample_path[0]
@@ -232,7 +229,7 @@ class _CityScapesTfReader(object):
         self._epoch_nums = self._cfg.TRAIN.EPOCH_NUMS
         self._train_batch_size = self._cfg.TRAIN.BATCH_SIZE
         self._val_batch_size = self._cfg.TRAIN.VAL_BATCH_SIZE
-        assert ops.exists(self._tfrecords_dir)
+        assert ops.exists(self._tfrecords_dir), '{:s} not exist'.format(self._tfrecords_dir)
 
         self._dataset_flags = dataset_flag.lower()
         if self._dataset_flags not in ['train', 'val']:
@@ -306,7 +303,9 @@ class _CityScapesTfReader(object):
                 dataset = dataset.repeat(self._epoch_nums)
 
                 dataset = dataset.batch(
-                    batch_size=batch_size, drop_remainder=True)
+                    batch_size=batch_size,
+                    drop_remainder=True
+                )
                 dataset = dataset.prefetch(buffer_size=batch_size * 16)
 
                 iterator = dataset.make_one_shot_iterator()
@@ -401,15 +400,15 @@ def main():
                 print('Iter: {:d}, cost time: {:.5f}s'.format(
                     count, time.time() - t_start))
                 count += 1
-                src_image = np.array((images[0] + 1.0) * 127.5, dtype=np.uint8)
-                print(labels[0].shape)
-                color_mask_image = decode_inference_prediction(mask=labels[0])
-
-                plt.figure('src')
-                plt.imshow(src_image)
-                plt.figure('label')
-                plt.imshow(color_mask_image)
-                plt.show()
+                # src_image = np.array((images[0] + 1.0) * 127.5, dtype=np.uint8)
+                # print(labels[0].shape)
+                # color_mask_image = decode_inference_prediction(mask=labels[0])
+                #
+                # plt.figure('src')
+                # plt.imshow(src_image)
+                # plt.figure('label')
+                # plt.imshow(color_mask_image)
+                # plt.show()
             except tf.errors.OutOfRangeError as err:
                 print(err)
 
