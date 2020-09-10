@@ -24,7 +24,7 @@ class ResNet(resnet_utils.ResnetBase):
     Dialated Resnet Backbone for semantic segmentation
     """
 
-    def __init__(self, phase, cfg=CFG):
+    def __init__(self, phase, cfg):
         """
 
         :param phase: phase of training or testing
@@ -113,12 +113,7 @@ class ResNet(resnet_utils.ResnetBase):
             return self._conv2d_fixed_padding(
                 inputs=_inputs, output_dims=output_dims * 4, kernel_size=1,
                 strides=stride, name='projection_shortcut')
-        
-        if tf.__version__ == '1.15.0':
-            vars_scope = tf.compat.v1.variable_scope(
-                name_or_scope=name)
-        else:
-            vars_scope = tf.variable_scope(name_or_scope=name)
+        vars_scope = tf.variable_scope(name_or_scope=name)
         with vars_scope:
             inputs = self._block_func(
                 input_tensor=input_tensor,
@@ -147,52 +142,28 @@ class ResNet(resnet_utils.ResnetBase):
         :return:
         """
         intermedia_result = collections.OrderedDict()
-        if tf.__version__ == '1.15.0':
-            with tf.compat.v1.variable_scope(name_or_scope=name, reuse=reuse):
-                # first layer process
-                inputs = self._process_image_input_tensor(
-                    input_image_tensor=input_tensor,
-                    kernel_size=7,
-                    conv_stride=2,
-                    output_dims=32,
-                    pool_size=3,
-                    pool_stride=2
-                )
+        with tf.variable_scope(name_or_scope=name, reuse=reuse):
+            # first layer process
+            inputs = self._process_image_input_tensor(
+                input_image_tensor=input_tensor,
+                kernel_size=7,
+                conv_stride=2,
+                output_dims=32,
+                pool_size=3,
+                pool_stride=2
+            )
 
-                # The first two layers doesn't not need apply dilation
-                for index, block_nums in enumerate(self._block_sizes):
-                    output_dims = 32 * (2 ** index)
-                    inputs = self._resnet_block_layer(
-                        input_tensor=inputs,
-                        stride=self._block_strides[index],
-                        block_nums=block_nums,
-                        output_dims=output_dims,
-                        name='residual_block_{:d}'.format(index + 1)
-                    )
-                    intermedia_result['stage_{:d}'.format(index + 1)] = inputs
-        else:
-            with tf.variable_scope(name_or_scope=name, reuse=reuse):
-                # first layer process
-                inputs = self._process_image_input_tensor(
-                    input_image_tensor=input_tensor,
-                    kernel_size=7,
-                    conv_stride=2,
-                    output_dims=32,
-                    pool_size=3,
-                    pool_stride=2
+            # The first two layers doesn't not need apply dilation
+            for index, block_nums in enumerate(self._block_sizes):
+                output_dims = 32 * (2 ** index)
+                inputs = self._resnet_block_layer(
+                    input_tensor=inputs,
+                    stride=self._block_strides[index],
+                    block_nums=block_nums,
+                    output_dims=output_dims,
+                    name='residual_block_{:d}'.format(index + 1)
                 )
-
-                # The first two layers doesn't not need apply dilation
-                for index, block_nums in enumerate(self._block_sizes):
-                    output_dims = 32 * (2 ** index)
-                    inputs = self._resnet_block_layer(
-                        input_tensor=inputs,
-                        stride=self._block_strides[index],
-                        block_nums=block_nums,
-                        output_dims=output_dims,
-                        name='residual_block_{:d}'.format(index + 1)
-                    )
-                    intermedia_result['stage_{:d}'.format(index + 1)] = inputs
+                intermedia_result['stage_{:d}'.format(index + 1)] = inputs
 
         return intermedia_result
 
@@ -200,12 +171,7 @@ class ResNet(resnet_utils.ResnetBase):
 def main():
     """test code
     """
-    if tf.__version__ == '1.15.0':
-        image_tensor = tf.compat.v1.random.uniform(
-            [1, 720, 720, 3], name='input_tensor')
-    else:
-        image_tensor = tf.random.uniform([1, 720, 720, 3], name='input_tensor')
-
+    image_tensor = tf.random.uniform([1, 720, 720, 3], name='input_tensor')
     net = ResNet(phase='train', cfg=CFG)
 
     result = net.inference(
