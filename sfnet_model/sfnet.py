@@ -185,7 +185,7 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
         output_channels = kwargs['output_channels']
         if 'padding' in kwargs:
             self._padding = kwargs['padding']
-        [_, low_height, low_width, _] = input_tensor_low.get_shape().as_list()
+        [batch_size, low_height, low_width, _] = input_tensor_low.get_shape().as_list()
         with tf.variable_scope(name_or_scope=name_scope):
             # project input_tensor_low
             input_tensor_low = self.conv2d(
@@ -234,14 +234,27 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
                 use_bias=False,
                 name='sf_field_x_logits'
             )
-            sf_field = tf.nn.tanh(sf_field, name='sf_field_norm')
-            sf_field_x = sf_field[:, :, :, 0]
-            sf_field_y = sf_field[:, :, :, 1]
+            mesh_grid_x = tf.linspace(-1.0, 1.0, low_width)
+            mesh_grid_y = tf.linspace(-1.0, 1.0, low_height)
+            sf_mesh_grid_x, sf_mesh_grid_y = tf.meshgrid(mesh_grid_x, mesh_grid_y)
+            sf_field_x = sf_field[:, :, :, 0] / low_width
+            sf_field_y = sf_field[:, :, :, 1] / low_height
+            sf_mesh_grid_x_list = []
+            sf_mesh_grid_y_list = []
+            for i in range(batch_size):
+                sf_mesh_grid_x_list.append(tf.expand_dims(sf_mesh_grid_x, axis=0))
+                sf_mesh_grid_y_list.append(tf.expand_dims(sf_mesh_grid_y, axis=0))
+            sf_mesh_grid_x = tf.concat(sf_mesh_grid_x_list, axis=0)
+            sf_mesh_grid_y = tf.concat(sf_mesh_grid_y_list, axis=0)
+
+            grid_sample_x = sf_mesh_grid_x + sf_field_x
+            grid_sample_y = sf_mesh_grid_y + sf_field_y
+
             # warp features
             warpped_features = self._bilinear_sampler(
                 input_tensor=input_tensor_high,
-                x=sf_field_x,
-                y=sf_field_y
+                x=grid_sample_x,
+                y=grid_sample_y
             )
             # fuse features
             output = tf.add(input_tensor_low, warpped_features,
@@ -698,8 +711,8 @@ class SFNet(cnn_basenet.CNNBaseModel):
 def main():
     """test code
     """
-    input_tensor = tf.random.uniform([1, 512, 512, 3], name='input_tensor')
-    label_tensor = tf.ones([1, 512, 512], name='input_tensor', dtype=tf.int32)
+    input_tensor = tf.random.uniform([4, 512, 512, 3], name='input_tensor')
+    label_tensor = tf.ones([4, 512, 512], name='input_tensor', dtype=tf.int32)
     net = SFNet(phase='train', cfg=CFG)
 
     inference_result = net.inference(
@@ -723,7 +736,7 @@ def main():
         init_op = tf.global_variables_initializer()
         sess.run(init_op)
 
-        loop_times = 500
+        loop_times = 5
 
         t_start = time.time()
         for _ in range(loop_times):

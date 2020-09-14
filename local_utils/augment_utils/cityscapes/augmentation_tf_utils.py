@@ -511,9 +511,9 @@ def preprocess_image_for_val(src_image, label_image):
 def main():
     """test code
     """
-    source_image_path = '/media/baidu/DataRepo/IMAGE_SCENE_SEGMENTATION/CITYSPACES/' \
+    source_image_path = './IMAGE_SCENE_SEGMENTATION/CITYSPACES/' \
                         'gt_images/leftImg8bit/train/aachen/aachen_000000_000019_leftImg8bit.png'
-    source_label_path = '/media/baidu/DataRepo/IMAGE_SCENE_SEGMENTATION/CITYSPACES/' \
+    source_label_path = './IMAGE_SCENE_SEGMENTATION/CITYSPACES/' \
                         'gt_annotation/gtFine/train/aachen/aachen_000000_000019_gtFine_labelTrainIds.png'
 
     source_image = tf.io.read_file(source_image_path)
