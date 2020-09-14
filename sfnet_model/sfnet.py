@@ -586,7 +586,7 @@ class SFNet(cnn_basenet.CNNBaseModel):
             )
         decoded_features = collections.OrderedDict()
         with tf.variable_scope(name_or_scope='decoder'):
-            output_channels = 128 if self._cfg.MODEL.RESNET.NET_SIZE < 50 else 256
+            output_channels = 128 if self._cfg.MODEL.RESNET.NET_SIZE < 50 else 128
             # first apply ppm
             encoded_final_features = self.conv2d(
                 inputdata=encoded_features['stage_4'],
