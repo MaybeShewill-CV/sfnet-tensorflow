@@ -185,7 +185,7 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
         output_channels = kwargs['output_channels']
         if 'padding' in kwargs:
             self._padding = kwargs['padding']
-        [_, low_height, low_width, _] = input_tensor_low.get_shape().as_list()
+        [batch_size, low_height, low_width, _] = input_tensor_low.get_shape().as_list()
         with tf.variable_scope(name_or_scope=name_scope):
             # project input_tensor_low
             input_tensor_low = self.conv2d(
@@ -225,31 +225,36 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
             )
             sf_fileld_input_tensor = tf.concat(
                 [input_tensor_low_project, tensor_upsample], axis=-1)
-            sf_field_x = self.conv2d(
+            sf_field = self.conv2d(
                 inputdata=sf_fileld_input_tensor,
-                out_channel=1,
+                out_channel=2,
                 kernel_size=3,
                 padding=self._padding,
                 stride=1,
                 use_bias=False,
                 name='sf_field_x_logits'
             )
-            sf_field_x = tf.nn.tanh(sf_field_x, name='sf_field_x')[:, :, :, 0]
-            sf_field_y = self.conv2d(
-                inputdata=sf_fileld_input_tensor,
-                out_channel=1,
-                kernel_size=3,
-                padding=self._padding,
-                stride=1,
-                use_bias=False,
-                name='sf_field_y_logits'
-            )
-            sf_field_y = tf.nn.tanh(sf_field_y, name='sf_field_y')[:, :, :, 0]
+            mesh_grid_x = tf.linspace(-1.0, 1.0, low_width)
+            mesh_grid_y = tf.linspace(-1.0, 1.0, low_height)
+            sf_mesh_grid_x, sf_mesh_grid_y = tf.meshgrid(mesh_grid_x, mesh_grid_y)
+            sf_field_x = sf_field[:, :, :, 0] / low_width
+            sf_field_y = sf_field[:, :, :, 1] / low_height
+            sf_mesh_grid_x_list = []
+            sf_mesh_grid_y_list = []
+            for i in range(batch_size):
+                sf_mesh_grid_x_list.append(tf.expand_dims(sf_mesh_grid_x, axis=0))
+                sf_mesh_grid_y_list.append(tf.expand_dims(sf_mesh_grid_y, axis=0))
+            sf_mesh_grid_x = tf.concat(sf_mesh_grid_x_list, axis=0)
+            sf_mesh_grid_y = tf.concat(sf_mesh_grid_y_list, axis=0)
+
+            grid_sample_x = sf_mesh_grid_x + sf_field_x
+            grid_sample_y = sf_mesh_grid_y + sf_field_y
+
             # warp features
             warpped_features = self._bilinear_sampler(
                 input_tensor=input_tensor_high,
-                x=sf_field_x,
-                y=sf_field_y
+                x=grid_sample_x,
+                y=grid_sample_y
             )
             # fuse features
             output = tf.add(input_tensor_low, warpped_features,
@@ -343,7 +348,7 @@ class _PPModule(cnn_basenet.CNNBaseModel):
                     name='ppm_pool_size_{:d}_project'.format(output_pool_size),
                     padding='SAME',
                     use_bias=False,
-                    need_activate=True
+                    need_activate=False
                 )
                 ppm_feature = tf.image.resize_bilinear(
                     images=ppm_feature,
@@ -352,7 +357,18 @@ class _PPModule(cnn_basenet.CNNBaseModel):
                 )
                 ppm_features.append(ppm_feature)
 
-            output_tensor = tf.concat(ppm_features, axis=-1, name='ppm_output')
+            output_tensor = tf.concat(ppm_features, axis=-1, name='ppm_concate')
+            output_tensor = self._conv_block(
+                input_tensor=output_tensor,
+                k_size=1,
+                output_channels=in_channels,
+                stride=1,
+                name='ppm_output'.format(output_pool_size),
+                padding='SAME',
+                use_bias=False,
+                need_activate=True
+            )
+
             return output_tensor
 
 
@@ -470,15 +486,16 @@ class SFNet(cnn_basenet.CNNBaseModel):
             cfg (Config): Config
         """
         super(SFNet, self).__init__()
+        self._cfg = cfg
         self._phase = phase
         self._is_training = self._is_net_for_training()
 
         # set model hyper params
-        self._basenet = resnet.ResNet(phase=phase, cfg=cfg)
+        self._basenet = resnet.ResNet(phase=phase, cfg=self._cfg)
         self._ppm_output_sizes = [1, 2, 3, 6]
-        self._class_nums = cfg.DATASET.NUM_CLASSES
-        self._weights_decay = cfg.SOLVER.WEIGHT_DECAY
-        self._loss_type = cfg.SOLVER.LOSS_TYPE
+        self._class_nums = self._cfg.DATASET.NUM_CLASSES
+        self._weights_decay = self._cfg.SOLVER.WEIGHT_DECAY
+        self._loss_type = self._cfg.SOLVER.LOSS_TYPE
 
         # set module used in sfnet
         self._fam_block = _FAMModule(phase=phase)
@@ -564,15 +581,16 @@ class SFNet(cnn_basenet.CNNBaseModel):
         with tf.variable_scope(name_or_scope='encoder'):
             encoded_features = self._basenet.inference(
                 input_tensor=input_tensor,
-                name='Resnet_Backbone',
+                name='resnet_backbone',
                 reuse=reuse
             )
         decoded_features = collections.OrderedDict()
         with tf.variable_scope(name_or_scope='decoder'):
+            output_channels = 128 if self._cfg.MODEL.RESNET.NET_SIZE < 50 else 128
             # first apply ppm
             encoded_final_features = self.conv2d(
                 inputdata=encoded_features['stage_4'],
-                out_channel=64,
+                out_channel=output_channels,
                 kernel_size=1,
                 padding='SAME',
                 stride=1,
@@ -589,21 +607,21 @@ class SFNet(cnn_basenet.CNNBaseModel):
             decode_stage_2 = self._fam_block(
                 input_tensor_low=encoded_features['stage_3'],
                 input_tensor_high=decode_stage_1,
-                output_channels=128,
+                output_channels=output_channels,
                 name='decode_fam_stage_1'
             )
             decoded_features['stage_2'] = decode_stage_2
             decode_stage_3 = self._fam_block(
                 input_tensor_low=encoded_features['stage_2'],
                 input_tensor_high=decode_stage_2,
-                output_channels=128,
+                output_channels=output_channels,
                 name='decode_fam_stage_2'
             )
             decoded_features['stage_3'] = decode_stage_3
             decode_stage_4 = self._fam_block(
                 input_tensor_low=encoded_features['stage_1'],
                 input_tensor_high=decode_stage_3,
-                output_channels=128,
+                output_channels=output_channels,
                 name='decode_fam_stage_3'
             )
             decoded_features['stage_4'] = decode_stage_4
@@ -611,24 +629,23 @@ class SFNet(cnn_basenet.CNNBaseModel):
             final_decode_stage_3 = self._fam_block(
                 input_tensor_low=final_decode_stage_4,
                 input_tensor_high=decode_stage_3,
-                output_channels=128,
+                output_channels=output_channels,
                 name='final_decode_fam_stage_3'
             )
             final_decode_stage_2 = self._fam_block(
                 input_tensor_low=final_decode_stage_4,
                 input_tensor_high=decode_stage_2,
-                output_channels=128,
+                output_channels=output_channels,
                 name='final_decode_fam_stage_2'
             )
             final_decode_stage_1 = self._fam_block(
                 input_tensor_low=final_decode_stage_4,
                 input_tensor_high=decode_stage_1,
-                output_channels=128,
+                output_channels=output_channels,
                 name='final_decode_fam_stage_1'
             )
             final_decode_features = tf.concat(
-                [final_decode_stage_4, final_decode_stage_3,
-                    final_decode_stage_2, final_decode_stage_1],
+                [final_decode_stage_4, final_decode_stage_3, final_decode_stage_2, final_decode_stage_1],
                 axis=-1,
                 name='final_decode_features'
             )
@@ -652,7 +669,7 @@ class SFNet(cnn_basenet.CNNBaseModel):
                 input_tensor=net_features,
                 name='logits',
                 upsample_ratio=4,
-                feature_dims=64,
+                feature_dims=256,
                 classes_nums=self._class_nums
             )
             segment_score = tf.nn.softmax(logits=segment_logits, name='prob')
@@ -678,7 +695,7 @@ class SFNet(cnn_basenet.CNNBaseModel):
                 input_tensor=net_features,
                 name='logits',
                 upsample_ratio=4,
-                feature_dims=64,
+                feature_dims=256,
                 classes_nums=self._class_nums
             )
             segment_loss = self._compute_cross_entropy_loss(
@@ -706,8 +723,8 @@ class SFNet(cnn_basenet.CNNBaseModel):
 def main():
     """test code
     """
-    input_tensor = tf.random.uniform([1, 720, 720, 3], name='input_tensor')
-    label_tensor = tf.ones([1, 720, 720], name='input_tensor', dtype=tf.int32)
+    input_tensor = tf.random.uniform([4, 512, 512, 3], name='input_tensor')
+    label_tensor = tf.ones([4, 512, 512], name='input_tensor', dtype=tf.int32)
     net = SFNet(phase='train', cfg=CFG)
 
     inference_result = net.inference(
@@ -731,7 +748,7 @@ def main():
         init_op = tf.global_variables_initializer()
         sess.run(init_op)
 
-        loop_times = 500
+        loop_times = 5
 
         t_start = time.time()
         for _ in range(loop_times):
@@ -742,4 +759,7 @@ def main():
 
 
 if __name__ == '__main__':
+    """
+    main func
+    """
     main()
