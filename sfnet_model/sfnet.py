@@ -225,26 +225,18 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
             )
             sf_fileld_input_tensor = tf.concat(
                 [input_tensor_low_project, tensor_upsample], axis=-1)
-            sf_field_x = self.conv2d(
+            sf_field = self.conv2d(
                 inputdata=sf_fileld_input_tensor,
-                out_channel=1,
+                out_channel=2,
                 kernel_size=3,
                 padding=self._padding,
                 stride=1,
                 use_bias=False,
                 name='sf_field_x_logits'
             )
-            sf_field_x = tf.nn.tanh(sf_field_x, name='sf_field_x')[:, :, :, 0]
-            sf_field_y = self.conv2d(
-                inputdata=sf_fileld_input_tensor,
-                out_channel=1,
-                kernel_size=3,
-                padding=self._padding,
-                stride=1,
-                use_bias=False,
-                name='sf_field_y_logits'
-            )
-            sf_field_y = tf.nn.tanh(sf_field_y, name='sf_field_y')[:, :, :, 0]
+            sf_field = tf.nn.tanh(sf_field, name='sf_field_norm')
+            sf_field_x = sf_field[:, :, :, 0]
+            sf_field_y = sf_field[:, :, :, 1]
             # warp features
             warpped_features = self._bilinear_sampler(
                 input_tensor=input_tensor_high,
@@ -706,8 +698,8 @@ class SFNet(cnn_basenet.CNNBaseModel):
 def main():
     """test code
     """
-    input_tensor = tf.random.uniform([1, 720, 720, 3], name='input_tensor')
-    label_tensor = tf.ones([1, 720, 720], name='input_tensor', dtype=tf.int32)
+    input_tensor = tf.random.uniform([1, 512, 512, 3], name='input_tensor')
+    label_tensor = tf.ones([1, 512, 512], name='input_tensor', dtype=tf.int32)
     net = SFNet(phase='train', cfg=CFG)
 
     inference_result = net.inference(
@@ -742,4 +734,7 @@ def main():
 
 
 if __name__ == '__main__':
+    """
+    main func
+    """
     main()
