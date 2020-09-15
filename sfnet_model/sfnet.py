@@ -374,7 +374,7 @@ class _PPModule(cnn_basenet.CNNBaseModel):
 
 class _SegmentationHead(cnn_basenet.CNNBaseModel):
     """
-    implementation of segmentation head in bisenet v2
+    implementation of segmentation head in sfnet v2
     """
 
     def __init__(self, phase):
@@ -497,6 +497,7 @@ class SFNet(cnn_basenet.CNNBaseModel):
         self._weights_decay = self._cfg.SOLVER.WEIGHT_DECAY
         self._loss_type = self._cfg.SOLVER.LOSS_TYPE
         self._use_boost_seg_head = self._cfg.SOLVER.BOOST_SEG_HEAD.ENABLE
+        self._enable_ohem = self._cfg.SOLVER.OHEM.ENABLE
 
         # set module used in sfnet
         self._fam_block = _FAMModule(phase=phase)
@@ -552,6 +553,49 @@ class SFNet(cnn_basenet.CNNBaseModel):
         return loss
 
     @classmethod
+    def _compute_ohem_cross_entropy_loss(cls, seg_logits, labels, class_nums, name, thresh, n_min):
+        """
+
+        :param seg_logits:
+        :param labels:
+        :param class_nums:
+        :param name:
+        :return:
+        """
+        with tf.variable_scope(name_or_scope=name):
+            # first check if the logits' shape is matched with the labels'
+            seg_logits_shape = seg_logits.shape[1:3]
+            labels_shape = labels.shape[1:3]
+            seg_logits = tf.cond(
+                tf.reduce_all(tf.equal(seg_logits_shape, labels_shape)),
+                true_fn=lambda: seg_logits,
+                false_fn=lambda: tf.image.resize_bilinear(seg_logits, labels_shape)
+            )
+            seg_logits = tf.reshape(seg_logits, [-1, class_nums])
+            labels = tf.reshape(labels, [-1, ])
+            indices = tf.squeeze(tf.where(tf.less_equal(labels, class_nums - 1)), 1)
+            seg_logits = tf.gather(seg_logits, indices)
+            labels = tf.cast(tf.gather(labels, indices), tf.int32)
+
+            # compute cross entropy loss
+            loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
+                labels=labels,
+                logits=seg_logits
+            )
+            loss, _ = tf.nn.top_k(loss, tf.size(loss), sorted=True)
+
+            # apply ohem
+            ohem_thresh = tf.multiply(-1.0, tf.math.log(thresh), name='ohem_score_thresh')
+            ohem_cond = tf.greater(loss[n_min], ohem_thresh)
+            loss_select = tf.cond(
+                pred=ohem_cond,
+                true_fn=lambda: tf.gather(loss, tf.squeeze(tf.where(tf.greater(loss, ohem_thresh)), 1)),
+                false_fn=lambda: loss[:n_min]
+            )
+            loss_value = tf.reduce_mean(loss_select, name='ohem_cross_entropy_loss')
+        return loss_value
+
+    @classmethod
     def _compute_l2_reg_loss(cls, var_list, weights_decay, name):
         """
 
@@ -572,12 +616,13 @@ class SFNet(cnn_basenet.CNNBaseModel):
 
         return l2_reg_loss
 
-    def build_model(self, input_tensor, reuse=False):
-        """Build sfnet model
+    def build_model(self, input_tensor, reuse=False, prepare_data_for_booster=False):
+        """
 
-        Args:
-            input_tensor (tensor): input tf tensor
-            reuse (bool): if reuse vars
+        :param input_tensor:
+        :param reuse:
+        :param prepare_data_for_booster:
+        :return:
         """
         with tf.variable_scope(name_or_scope='encoder'):
             encoded_features = self._basenet.inference(
@@ -585,7 +630,7 @@ class SFNet(cnn_basenet.CNNBaseModel):
                 name='resnet_backbone',
                 reuse=reuse
             )
-        decoded_features = collections.OrderedDict()
+        decoded_seg_logits = collections.OrderedDict()
         with tf.variable_scope(name_or_scope='decoder'):
             output_channels = 128 if self._cfg.MODEL.RESNET.NET_SIZE < 50 else 128
             # first apply ppm
@@ -604,28 +649,24 @@ class SFNet(cnn_basenet.CNNBaseModel):
                 name='ppm'
             )
             decode_stage_1 = ppm_output_tensor
-            decoded_features['stage_1'] = decode_stage_1
             decode_stage_2 = self._fam_block(
                 input_tensor_low=encoded_features['stage_3'],
                 input_tensor_high=decode_stage_1,
                 output_channels=output_channels,
                 name='decode_fam_stage_1'
             )
-            decoded_features['stage_2'] = decode_stage_2
             decode_stage_3 = self._fam_block(
                 input_tensor_low=encoded_features['stage_2'],
                 input_tensor_high=decode_stage_2,
                 output_channels=output_channels,
                 name='decode_fam_stage_2'
             )
-            decoded_features['stage_3'] = decode_stage_3
             decode_stage_4 = self._fam_block(
                 input_tensor_low=encoded_features['stage_1'],
                 input_tensor_high=decode_stage_3,
                 output_channels=output_channels,
                 name='decode_fam_stage_3'
             )
-            decoded_features['stage_4'] = decode_stage_4
             final_decode_stage_4 = decode_stage_4
             final_decode_stage_3 = self._fam_block(
                 input_tensor_low=final_decode_stage_4,
@@ -650,61 +691,92 @@ class SFNet(cnn_basenet.CNNBaseModel):
                 axis=-1,
                 name='final_decode_features'
             )
-            decoded_features['final_stage'] = final_decode_features
-        return decoded_features
-
-    def inference(self, input_tensor, name, reuse=False):
-        """sfnet inference part
-
-        Args:
-            input_tensor ([type]): [description]
-            name ([type]): [description]
-            reuse (bool, optional): [description]. Defaults to False.
-        """
-        with tf.variable_scope(name_or_scope=name, reuse=reuse):
-            net_features = self.build_model(
-                input_tensor=input_tensor,
-                reuse=reuse
-            )['final_stage']
-            segment_logits = self._seg_head_block(
-                input_tensor=net_features,
-                name='logits',
+            final_stage_logits = self._seg_head_block(
+                input_tensor=final_decode_features,
+                name='final_stage_logits',
                 upsample_ratio=4,
                 feature_dims=256,
                 classes_nums=self._class_nums
             )
+            decoded_seg_logits['final_stage'] = final_stage_logits
+        if prepare_data_for_booster:
+            decode_stage_2_logits = self._seg_head_block(
+                input_tensor=decode_stage_2,
+                name='decode_stage_2_logits',
+                upsample_ratio=16,
+                feature_dims=256,
+                classes_nums=self._class_nums
+            )
+            decoded_seg_logits['stage_2'] = decode_stage_2_logits
+            decode_stage_3_logits = self._seg_head_block(
+                input_tensor=decode_stage_3,
+                name='decode_stage_3_logits',
+                upsample_ratio=8,
+                feature_dims=256,
+                classes_nums=self._class_nums
+            )
+            decoded_seg_logits['stage_3'] = decode_stage_3_logits
+            decode_stage_4_logits = self._seg_head_block(
+                input_tensor=decode_stage_4,
+                name='decode_stage_4_logits',
+                upsample_ratio=4,
+                feature_dims=256,
+                classes_nums=self._class_nums
+            )
+            decoded_seg_logits['stage_4'] = decode_stage_4_logits
+
+        return decoded_seg_logits
+
+    def inference(self, input_tensor, name, reuse=False):
+        """
+
+        :param input_tensor:
+        :param name:
+        :param reuse:
+        :return:
+        """
+        with tf.variable_scope(name_or_scope=name, reuse=reuse):
+            segment_logits = self.build_model(
+                input_tensor=input_tensor,
+                reuse=reuse,
+                prepare_data_for_booster=False
+            )['final_stage']
             segment_score = tf.nn.softmax(logits=segment_logits, name='prob')
             segment_prediction = tf.argmax(
                 segment_score, axis=-1, name='prediction')
         return segment_prediction
 
     def compute_loss(self, input_tensor, label_tensor, name, reuse=False):
-        """Compute net loss
+        """
 
-        Args:
-            input_tensor ([type]): [description]
-            label_tensor ([type]): [description]
-            name ([type]): [description]
-            reuse (bool, optional): [description]. Defaults to False.
+        :param input_tensor:
+        :param label_tensor:
+        :param name:
+        :param reuse:
+        :return:
         """
         with tf.variable_scope(name_or_scope=name, reuse=reuse):
-            net_features = self.build_model(
+            net_seg_logits = self.build_model(
                 input_tensor=input_tensor,
-                reuse=reuse
-            )['final_stage']
-            segment_logits = self._seg_head_block(
-                input_tensor=net_features,
-                name='logits',
-                upsample_ratio=4,
-                feature_dims=256,
-                classes_nums=self._class_nums
+                reuse=reuse,
+                prepare_data_for_booster=True
             )
-            segment_loss = self._compute_cross_entropy_loss(
-                seg_logits=segment_logits,
-                labels=label_tensor,
-                class_nums=self._class_nums,
-                name='cross_entropy_loss'
-            )
+            # compute network loss
+            segment_loss = tf.constant(0.0, tf.float32)
+            for stage_name, seg_logits in net_seg_logits.items():
+                loss_stage_name = '{:s}_segmentation_loss'.format(stage_name)
+                if self._loss_type == 'cross_entropy':
+                    if not self._enable_ohem:
+                        segment_loss += self._compute_cross_entropy_loss(
+                            seg_logits=seg_logits,
+                            labels=label_tensor,
+                            class_nums=self._class_nums,
+                            name=loss_stage_name
+                        )
+                    else:
+                        raise NotImplementedError('OHEM has not been implemented yet')
+                else:
+                    raise NotImplementedError('Not supported loss of type: {:s}'.format(self._loss_type))
             var_list = tf.trainable_variables()
             l2_reg_loss = self._compute_l2_reg_loss(
                 var_list=var_list,
@@ -724,23 +796,25 @@ class SFNet(cnn_basenet.CNNBaseModel):
 def main():
     """test code
     """
-    input_tensor = tf.random.uniform([4, 512, 512, 3], name='input_tensor')
-    label_tensor = tf.ones([4, 512, 512], name='input_tensor', dtype=tf.int32)
+    input_tensor = tf.random.uniform([1, 512, 512, 3], name='input_tensor')
+    label_tensor = tf.ones([1, 512, 512], name='input_tensor', dtype=tf.int32)
     net = SFNet(phase='train', cfg=CFG)
-
-    inference_result = net.inference(
-        input_tensor=input_tensor,
-        reuse=False,
-        name='SFNet'
-    )
-    print(inference_result)
 
     loss_set = net.compute_loss(
         input_tensor=input_tensor,
         label_tensor=label_tensor,
+        reuse=False,
+        name='SFNet'
+    )
+
+    inference_result = net.inference(
+        input_tensor=input_tensor,
         reuse=True,
         name='SFNet'
     )
+    print(inference_result)
+
+
     for loss_name, loss_t in loss_set.items():
         print('Loss: {:s}, {}'.format(loss_name, loss_t))
     
@@ -749,7 +823,7 @@ def main():
         init_op = tf.global_variables_initializer()
         sess.run(init_op)
 
-        loop_times = 5
+        loop_times = 500
 
         t_start = time.time()
         for _ in range(loop_times):

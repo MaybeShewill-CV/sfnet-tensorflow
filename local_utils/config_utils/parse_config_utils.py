@@ -8,6 +8,7 @@
 """
 Parse config utils
 """
+import platform
 import codecs
 import json
 import os
@@ -227,7 +228,7 @@ class Config(dict):
 
     def dump_to_json_file(self, f_obj):
         """
-CITYSCAPES_CFG
+        CITYSCAPES_CFG
         :param f_obj:
         :return:
         """
@@ -242,5 +243,11 @@ CITYSCAPES_CFG
         return json.dump(origin_dict, f_obj)
 
 
-CITYSCAPES_CFG = Config(
-    config_path='./config/cityscapes/cityscapes_sfnet.yaml')
+if platform.system() == 'Linux':
+    CITYSCAPES_CFG = Config(
+        config_path='./config/cityscapes/cityscapes_sfnet.yaml')
+elif platform.system() == 'Windows':
+    CITYSCAPES_CFG = Config(
+        config_path='F:\\github\\sfnet-tensorflow\\config\\cityscapes\\cityscapes_sfnet.yaml')
+else:
+    raise ValueError('Not supported platform: {:s}'.format(platform.system()))
