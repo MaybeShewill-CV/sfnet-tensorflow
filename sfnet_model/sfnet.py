@@ -496,6 +496,7 @@ class SFNet(cnn_basenet.CNNBaseModel):
         self._class_nums = self._cfg.DATASET.NUM_CLASSES
         self._weights_decay = self._cfg.SOLVER.WEIGHT_DECAY
         self._loss_type = self._cfg.SOLVER.LOSS_TYPE
+        self._use_boost_seg_head = self._cfg.SOLVER.BOOST_SEG_HEAD.ENABLE
 
         # set module used in sfnet
         self._fam_block = _FAMModule(phase=phase)

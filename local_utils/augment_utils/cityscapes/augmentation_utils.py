@@ -13,7 +13,7 @@ import numpy as np
 
 from local_utils.config_utils import parse_config_utils
 
-CFG = parse_config_utils.cityscapes_cfg_v2
+CFG = parse_config_utils.CITYSCAPES_CFG
 
 
 def resize(img, grt=None, mode='train'):
