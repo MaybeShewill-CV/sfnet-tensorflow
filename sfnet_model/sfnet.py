@@ -237,8 +237,10 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
             mesh_grid_x = tf.linspace(-1.0, 1.0, low_width)
             mesh_grid_y = tf.linspace(-1.0, 1.0, low_height)
             sf_mesh_grid_x, sf_mesh_grid_y = tf.meshgrid(mesh_grid_x, mesh_grid_y)
-            sf_field_x = sf_field[:, :, :, 0] / low_width
-            sf_field_y = sf_field[:, :, :, 1] / low_height
+            # sf_field_x = sf_field[:, :, :, 0] / low_width
+            # sf_field_y = sf_field[:, :, :, 1] / low_height
+            sf_field_x = tf.nn.tanh(sf_field[:, :, :, 0])
+            sf_field_y = tf.nn.tanh(sf_field[:, :, :, 1])
             sf_mesh_grid_x_list = []
             sf_mesh_grid_y_list = []
             for i in range(batch_size):
@@ -331,7 +333,6 @@ class _PPModule(cnn_basenet.CNNBaseModel):
         name_scope = kwargs['name']
         [_, in_height, in_width, in_channels] = input_tensor.get_shape().as_list()
         ppm_features = [input_tensor]
-        ppm_levels = len(output_pool_sizes)
         with tf.variable_scope(name_or_scope=name_scope):
             for output_pool_size in output_pool_sizes:
                 ppm_feature = self.spatial_pyramid_pool(
@@ -343,7 +344,7 @@ class _PPModule(cnn_basenet.CNNBaseModel):
                 ppm_feature = self._conv_block(
                     input_tensor=ppm_feature,
                     k_size=1,
-                    output_channels=int(in_channels / ppm_levels),
+                    output_channels=in_channels,
                     stride=1,
                     name='ppm_pool_size_{:d}_project'.format(output_pool_size),
                     padding='SAME',
@@ -355,7 +356,7 @@ class _PPModule(cnn_basenet.CNNBaseModel):
                     size=(in_height, in_width),
                     name='ppm_pool_size_{:d}_upsample'.format(output_pool_size)
                 )
-                ppm_features.append(ppm_feature)
+                ppm_features.append(ppm_feature + input_tensor)
 
             output_tensor = tf.concat(ppm_features, axis=-1, name='ppm_concate')
             output_tensor = self._conv_block(
