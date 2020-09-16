@@ -40,7 +40,7 @@ FREEZE:
 MODEL:
     MODEL_NAME: 'sfnet'
     RESNET:
-        NET_SIZE: 101
+        NET_SIZE: 18
 TEST:
     TEST_MODEL: 'model/cityscapes/final'
 TRAIN:
@@ -53,7 +53,7 @@ TRAIN:
     SNAPSHOT_EPOCH: 8
     BATCH_SIZE: 8
     VAL_BATCH_SIZE: 4
-    EPOCH_NUMS: 513
+    EPOCH_NUMS: 257
     WARM_UP:
         ENABLE: True
         EPOCH_NUMS: 4
