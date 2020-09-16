@@ -76,9 +76,9 @@ SOLVER:
     MOVING_AVE_DECAY: 0.9995
     LOSS_TYPE: 'cross_entropy'
     OHEM:
-        ENABLE: False
-        SCORE_THRESH: 0.65
-        MIN_SAMPLE_NUMS: 262144
+        ENABLE: True
+        SCORE_THRESH: 0.45
+        MIN_SAMPLE_NUMS: 65536
     BOOST_SEG_HEAD:
         ENABLE: True
 GPU:

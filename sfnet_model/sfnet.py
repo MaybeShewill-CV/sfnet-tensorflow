@@ -498,6 +498,9 @@ class SFNet(cnn_basenet.CNNBaseModel):
         self._loss_type = self._cfg.SOLVER.LOSS_TYPE
         self._use_boost_seg_head = self._cfg.SOLVER.BOOST_SEG_HEAD.ENABLE
         self._enable_ohem = self._cfg.SOLVER.OHEM.ENABLE
+        if self._enable_ohem:
+            self._ohem_score_thresh = cfg.SOLVER.OHEM.SCORE_THRESH
+            self._ohem_min_sample_nums = cfg.SOLVER.OHEM.MIN_SAMPLE_NUMS
 
         # set module used in sfnet
         self._fam_block = _FAMModule(phase=phase)
@@ -774,7 +777,14 @@ class SFNet(cnn_basenet.CNNBaseModel):
                             name=loss_stage_name
                         )
                     else:
-                        raise NotImplementedError('OHEM has not been implemented yet')
+                        segment_loss += self._compute_ohem_cross_entropy_loss(
+                            seg_logits=seg_logits,
+                            labels=label_tensor,
+                            class_nums=self._class_nums,
+                            name=loss_stage_name,
+                            thresh=self._ohem_score_thresh,
+                            n_min=self._ohem_min_sample_nums
+                        )
                 else:
                     raise NotImplementedError('Not supported loss of type: {:s}'.format(self._loss_type))
             var_list = tf.trainable_variables()
@@ -794,7 +804,8 @@ class SFNet(cnn_basenet.CNNBaseModel):
 
 
 def main():
-    """test code
+    """
+    test code
     """
     input_tensor = tf.random.uniform([1, 512, 512, 3], name='input_tensor')
     label_tensor = tf.ones([1, 512, 512], name='input_tensor', dtype=tf.int32)
@@ -813,7 +824,6 @@ def main():
         name='SFNet'
     )
     print(inference_result)
-
 
     for loss_name, loss_t in loss_set.items():
         print('Loss: {:s}, {}'.format(loss_name, loss_t))
