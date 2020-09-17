@@ -40,9 +40,9 @@ class ResNet(resnet_utils.ResnetBase):
         self._block_strides = [1, 2, 2, 2]
         self._classes_nums = cfg.DATASET.NUM_CLASSES
         if self._resnet_size < 50:
-            self._block_func = self._building_block_v2
+            self._block_func = self._building_block_v1
         else:
-            self._block_func = self._bottleneck_block_v2
+            self._block_func = self._bottleneck_block_v1
 
     def _init_phase(self):
         """

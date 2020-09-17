@@ -179,23 +179,24 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
     def __call__(self, *args, **kwargs):
         """fam module function
         """
-        input_tensor_low = kwargs['input_tensor_low']
+        input_tensor_low_origin = kwargs['input_tensor_low']
         input_tensor_high = kwargs['input_tensor_high']
         name_scope = kwargs['name']
         output_channels = kwargs['output_channels']
         if 'padding' in kwargs:
             self._padding = kwargs['padding']
-        [batch_size, low_height, low_width, _] = input_tensor_low.get_shape().as_list()
+        [batch_size, low_height, low_width, _] = input_tensor_low_origin.get_shape().as_list()
         with tf.variable_scope(name_or_scope=name_scope):
             # project input_tensor_low
-            input_tensor_low = self.conv2d(
-                inputdata=input_tensor_low,
-                out_channel=output_channels,
-                kernel_size=1,
-                padding=self._padding,
+            input_tensor_low_origin = self._conv_block(
+                input_tensor=input_tensor_low_origin,
+                k_size=1,
+                output_channels=output_channels,
                 stride=1,
+                name='input_tensor_low_align_project',
+                padding=self._padding,
                 use_bias=False,
-                name='input_tensor_low_align_channels'
+                need_activate=True
             )
             # upsample high features
             tensor_upsample = self.conv2d(
@@ -215,7 +216,7 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
             )
             # generate grid
             input_tensor_low_project = self.conv2d(
-                inputdata=input_tensor_low,
+                inputdata=input_tensor_low_origin,
                 out_channel=output_channels,
                 kernel_size=1,
                 padding=self._padding,
@@ -239,8 +240,10 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
             sf_mesh_grid_x, sf_mesh_grid_y = tf.meshgrid(mesh_grid_x, mesh_grid_y)
             # sf_field_x = sf_field[:, :, :, 0] / low_width
             # sf_field_y = sf_field[:, :, :, 1] / low_height
-            sf_field_x = tf.nn.tanh(sf_field[:, :, :, 0])
-            sf_field_y = tf.nn.tanh(sf_field[:, :, :, 1])
+            # sf_field_x = tf.nn.tanh(sf_field[:, :, :, 0])
+            # sf_field_y = tf.nn.tanh(sf_field[:, :, :, 1])
+            sf_field_x = sf_field[:, :, :, 0]
+            sf_field_y = sf_field[:, :, :, 1]
             sf_mesh_grid_x_list = []
             sf_mesh_grid_y_list = []
             for i in range(batch_size):
@@ -259,9 +262,19 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
                 y=grid_sample_y
             )
             # fuse features
-            output = tf.add(input_tensor_low, warpped_features,
+            output = tf.add(input_tensor_low_origin, warpped_features,
                             name='fam_output')
-        return output
+            fused_output = self._conv_block(
+                input_tensor=output,
+                k_size=1,
+                output_channels=output_channels,
+                stride=1,
+                name='fam_fused_output',
+                padding=self._padding,
+                use_bias=False,
+                need_activate=True
+            )
+        return fused_output
 
 
 class _PPModule(cnn_basenet.CNNBaseModel):
