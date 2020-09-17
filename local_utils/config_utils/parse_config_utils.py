@@ -244,10 +244,14 @@ class Config(dict):
 
 
 if platform.system() == 'Linux':
-    CITYSCAPES_CFG = Config(
+    SFNET_CITYSCAPES_CFG = Config(
         config_path='./config/cityscapes/cityscapes_sfnet.yaml')
+    RESNET_FCN_CITYSCAPES_CFG = Config(
+        config_path='./config/cityscapes/cityscapes_resnetfcn.yaml')
 elif platform.system() == 'Windows':
-    CITYSCAPES_CFG = Config(
+    SFNET_CITYSCAPES_CFG = Config(
         config_path='F:\\github\\sfnet-tensorflow\\config\\cityscapes\\cityscapes_sfnet.yaml')
+    RESNET_FCN_CITYSCAPES_CFG = Config(
+        config_path='F:\\github\\sfnet-tensorflow\\config\\cityscapes\\cityscapes_resnetfcn.yaml')
 else:
     raise ValueError('Not supported platform: {:s}'.format(platform.system()))

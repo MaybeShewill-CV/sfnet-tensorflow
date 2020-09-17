@@ -19,14 +19,14 @@ import tensorflow as tf
 import loguru
 import tqdm
 
-from sfnet_model import sfnet
+from sfnet_model import resnet_fcn
 from local_utils.config_utils import parse_config_utils
 from data_provider.cityscapes import cityscapes_tf_io
 
 LOG = loguru.logger
 
 
-class SFNetCityScapesMultiTrainer(object):
+class ResNetFCNCityScapesMultiTrainer(object):
     """
     init sfnet multi gpu trainner
     """
@@ -98,8 +98,8 @@ class SFNetCityScapesMultiTrainer(object):
             )
 
         # define model
-        self._model = sfnet.SFNet(phase='train', cfg=self._cfg)
-        self._val_model = sfnet.SFNet(phase='test', cfg=self._cfg)
+        self._model = resnet_fcn.ResNetFCN(phase='train', cfg=self._cfg)
+        self._val_model = resnet_fcn.ResNetFCN(phase='test', cfg=self._cfg)
 
         # define average container
         tower_grads = []
@@ -292,7 +292,7 @@ class SFNetCityScapesMultiTrainer(object):
             self._summary_writer = tf.summary.FileWriter(
                 self._tboard_save_dir, graph=self._sess.graph)
 
-        LOG.info('Initialize cityscapes sfnet multi gpu trainner complete')
+        LOG.info('Initialize cityscapes resnet fcn multi gpu trainner complete')
 
     @staticmethod
     def _average_gradients(tower_grads):
@@ -403,10 +403,10 @@ class SFNetCityScapesMultiTrainer(object):
                 LOG.error(e)
                 LOG.info('=> Can not load pretrained model weights: {:s}'.format(
                     self._initial_weight))
-                LOG.info('=> Now it starts to train SFNet from scratch ...')
+                LOG.info('=> Now it starts to train ResNet FCN from scratch ...')
                 epoch_start_pt = 1
         else:
-            LOG.info('=> Starts to train SFNet from scratch ...')
+            LOG.info('=> Starts to train ResNet FCN from scratch ...')
             epoch_start_pt = 1
 
         best_model = []
@@ -563,5 +563,5 @@ if __name__ == '__main__':
     """
     test code
     """
-    worker = SFNetCityScapesMultiTrainer(cfg=parse_config_utils.SFNET_CITYSCAPES_CFG)
+    worker = ResNetFCNCityScapesMultiTrainer(cfg=parse_config_utils.RESNET_FCN_CITYSCAPES_CFG)
     print('Init complete')

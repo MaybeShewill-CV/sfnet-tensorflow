@@ -14,7 +14,6 @@ import loguru
 
 from local_utils.config_utils import parse_config_utils
 
-CFG = parse_config_utils.CITYSCAPES_CFG
 LOG = loguru.logger
 
 
@@ -56,7 +55,7 @@ def decode(serialized_example):
     return gt_image, gt_binary_image
 
 
-def resize(img, grt=None, mode='train', align_corners=True):
+def resize(cfg, img, grt=None, mode='train', align_corners=True):
     """
     改变图像及标签图像尺寸
     AUG.AUG_METHOD为unpadding，所有模式均直接resize到AUG.FIX_RESIZE_SIZE的尺寸
@@ -65,6 +64,7 @@ def resize(img, grt=None, mode='train', align_corners=True):
     AUG.AUG_METHOD为rangescaling，长边对齐，短边按比例变化，训练时长边对齐范围AUG.MIN_RESIZE_VALUE
     到AUG.MAX_RESIZE_VALUE，其他模式长边对齐AUG.INF_RESIZE_VALUE
     Args：
+        cfg:
         img(numpy.ndarray): 输入图像
         grt(numpy.ndarray): 标签图像，默认为None
         mode(string): 模式, 默认训练模式
@@ -75,27 +75,27 @@ def resize(img, grt=None, mode='train', align_corners=True):
     mode = mode.lower()
     img = tf.expand_dims(img, axis=0)
     grt = tf.expand_dims(grt, axis=0)
-    if CFG.AUG.RESIZE_METHOD == 'unpadding':
-        target_size = (CFG.AUG.FIX_RESIZE_SIZE[0], CFG.AUG.FIX_RESIZE_SIZE[1])
+    if cfg.AUG.RESIZE_METHOD == 'unpadding':
+        target_size = (cfg.AUG.FIX_RESIZE_SIZE[0], cfg.AUG.FIX_RESIZE_SIZE[1])
         img = tf.image.resize_bilinear(
             images=img, size=target_size, align_corners=align_corners)
         if grt is not None:
             grt = tf.image.resize_nearest_neighbor(
                 images=grt, size=target_size, align_corners=align_corners)
-    elif CFG.AUG.RESIZE_METHOD == 'stepscaling':
+    elif cfg.AUG.RESIZE_METHOD == 'stepscaling':
         if mode == 'train':
-            min_scale_factor = CFG.AUG.MIN_SCALE_FACTOR
-            max_scale_factor = CFG.AUG.MAX_SCALE_FACTOR
-            step_size = CFG.AUG.SCALE_STEP_SIZE
+            min_scale_factor = cfg.AUG.MIN_SCALE_FACTOR
+            max_scale_factor = cfg.AUG.MAX_SCALE_FACTOR
+            step_size = cfg.AUG.SCALE_STEP_SIZE
             scale_factor = get_random_scale(
                 min_scale_factor, max_scale_factor, step_size
             )
             img, grt = randomly_scale_image_and_label(
                 img, grt, scale=scale_factor, align_corners=align_corners
             )
-    elif CFG.AUG.RESIZE_METHOD == 'rangescaling':
-        min_resize_value = CFG.AUG.MIN_RESIZE_VALUE
-        max_resize_value = CFG.AUG.MAX_RESIZE_VALUE
+    elif cfg.AUG.RESIZE_METHOD == 'rangescaling':
+        min_resize_value = cfg.AUG.MIN_RESIZE_VALUE
+        max_resize_value = cfg.AUG.MAX_RESIZE_VALUE
         if mode == 'train':
             if min_resize_value == max_resize_value:
                 random_size = min_resize_value
@@ -104,7 +104,7 @@ def resize(img, grt=None, mode='train', align_corners=True):
                     shape=[1], minval=min_resize_value, maxval=max_resize_value, dtype=tf.float32) + 0.5
                 random_size = tf.cast(random_size, dtype=tf.int32)
         else:
-            random_size = CFG.AUG.INF_RESIZE_VALUE
+            random_size = cfg.AUG.INF_RESIZE_VALUE
 
         value = tf.maximum(img.shape[0], img.shape[1])
         scale = float(random_size) / float(value)
@@ -119,7 +119,7 @@ def resize(img, grt=None, mode='train', align_corners=True):
             )
     else:
         raise Exception(
-            "Unexpect data augmention method: {}".format(CFG.AUG.AUG_METHOD))
+            "Unexpect data augmention method: {}".format(cfg.AUG.AUG_METHOD))
 
     return tf.squeeze(img, axis=0), tf.squeeze(grt, axis=0)
 
@@ -388,20 +388,21 @@ def resolve_shape(tensor, rank=None, scope=None):
     return shape
 
 
-def random_flip_image(img, grt):
+def random_flip_image(img, grt, cfg):
     """
 
     :param img:
     :param grt:
+    :param cfg
     :return:
     """
-    if CFG.AUG.FLIP:
-        if CFG.AUG.FLIP_RATIO <= 0:
+    if cfg.AUG.FLIP:
+        if cfg.AUG.FLIP_RATIO <= 0:
             n = 0
-        elif CFG.AUG.FLIP_RATIO >= 1:
+        elif cfg.AUG.FLIP_RATIO >= 1:
             n = 1
         else:
-            n = int(1.0 / CFG.AUG.FLIP_RATIO)
+            n = int(1.0 / cfg.AUG.FLIP_RATIO)
         if n > 0:
             random_value = tf.random_uniform([])
             is_flipped = tf.less_equal(random_value, 0.5)
@@ -413,14 +414,15 @@ def random_flip_image(img, grt):
     return img, grt
 
 
-def random_mirror_image(img, grt):
+def random_mirror_image(img, grt, cfg):
     """
 
     :param img:
     :param grt:
+    :param cfg
     :return:
     """
-    if CFG.AUG.MIRROR:
+    if cfg.AUG.MIRROR:
         random_value = tf.random_uniform([])
         is_mirrored = tf.less_equal(random_value, 0.5)
         img = tf.cond(
@@ -431,22 +433,23 @@ def random_mirror_image(img, grt):
     return img, grt
 
 
-def normalize_image(img, grt):
+def normalize_image(img, grt, cfg):
     """
 
     :param img:
     :param grt:
+    :param cfg
     :return:
     """
     img = tf.divide(img, tf.constant(255.0))
     img_mean = tf.convert_to_tensor(
-        np.array(CFG.DATASET.MEAN_VALUE).reshape(
-            (1, 1, len(CFG.DATASET.MEAN_VALUE))),
+        np.array(cfg.DATASET.MEAN_VALUE).reshape(
+            (1, 1, len(cfg.DATASET.MEAN_VALUE))),
         dtype=tf.float32
     )
     img_std = tf.convert_to_tensor(
-        np.array(CFG.DATASET.STD_VALUE).reshape(
-            (1, 1, len(CFG.DATASET.STD_VALUE))),
+        np.array(cfg.DATASET.STD_VALUE).reshape(
+            (1, 1, len(cfg.DATASET.STD_VALUE))),
         dtype=tf.float32
     )
     img -= img_mean
@@ -455,55 +458,57 @@ def normalize_image(img, grt):
     return img, grt
 
 
-def preprocess_image_for_train(src_image, label_image):
+def preprocess_image_for_train(src_image, label_image, cfg):
     """
 
     :param src_image:
     :param label_image:
+    :param cfg:
     :return:
     """
     # resize image
-    src_image, label_image = resize(src_image, label_image)
+    src_image, label_image = resize(cfg=cfg, img=src_image, grt=label_image)
     # random flip
-    src_image, label_image = random_flip_image(src_image, label_image)
+    src_image, label_image = random_flip_image(src_image, label_image, cfg=cfg)
     # random mirror
-    src_image, label_image = random_mirror_image(src_image, label_image)
+    src_image, label_image = random_mirror_image(src_image, label_image, cfg=cfg)
     # padding images
     image_shape = tf.shape(src_image)
     image_height = image_shape[0]
     image_width = image_shape[1]
     target_height = image_height + \
-        tf.maximum(CFG.AUG.TRAIN_CROP_SIZE[1] - image_height, 0)
+        tf.maximum(cfg.AUG.TRAIN_CROP_SIZE[1] - image_height, 0)
     target_width = image_width + \
-        tf.maximum(CFG.AUG.TRAIN_CROP_SIZE[0] - image_width, 0)
+        tf.maximum(cfg.AUG.TRAIN_CROP_SIZE[0] - image_width, 0)
 
-    pad_pixel = tf.reshape(CFG.DATASET.PADDING_VALUE, [1, 1, 3])
+    pad_pixel = tf.reshape(cfg.DATASET.PADDING_VALUE, [1, 1, 3])
     src_image = pad_to_bounding_box(
         src_image, 0, 0, target_height, target_width, pad_pixel)
     label_image = pad_to_bounding_box(
-        label_image, 0, 0, target_height, target_width, CFG.DATASET.IGNORE_INDEX)
+        label_image, 0, 0, target_height, target_width, cfg.DATASET.IGNORE_INDEX)
     # random crop
     src_image, label_image = rand_crop(
         image_list=[src_image, label_image],
-        crop_height=CFG.AUG.TRAIN_CROP_SIZE[1],
-        crop_width=CFG.AUG.TRAIN_CROP_SIZE[0]
+        crop_height=cfg.AUG.TRAIN_CROP_SIZE[1],
+        crop_width=cfg.AUG.TRAIN_CROP_SIZE[0]
     )
     # normalize image
-    src_image, label_image = normalize_image(src_image, label_image)
+    src_image, label_image = normalize_image(src_image, label_image, cfg=cfg)
 
     return src_image, label_image
 
 
-def preprocess_image_for_val(src_image, label_image):
+def preprocess_image_for_val(src_image, label_image, cfg):
     """
 
     :param src_image:
     :param label_image:
+    :param cfg:
     :return:
     """
     src_image = tf.cast(src_image, tf.float32)
     # normalize image
-    src_image, label_image = normalize_image(src_image, label_image)
+    src_image, label_image = normalize_image(src_image, label_image, cfg=cfg)
 
     return src_image, label_image
 
@@ -525,7 +530,8 @@ def main():
 
     preprocess_src_img, preprocess_label_img = preprocess_image_for_train(
         src_image=source_image,
-        label_image=source_label_image
+        label_image=source_label_image,
+        cfg=parse_config_utils.RESNET_FCN_CITYSCAPES_CFG
     )
 
     with tf.Session() as sess:
@@ -535,4 +541,7 @@ def main():
 
 
 if __name__ == '__main__':
+    """
+    main func
+    """
     main()

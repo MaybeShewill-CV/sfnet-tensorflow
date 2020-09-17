@@ -8,13 +8,12 @@
 """
 Train sfnet on cityscapes dataset
 """
-from trainner.cityscapes import cityscapes_sfnet_single_gpu_trainner as single_gpu_trainner
-from trainner.cityscapes import cityscapes_sfnet_multi_gpu_trainner as multi_gpu_trainner
+from trainner.cityscapes import cityscapes_resnetfcn_multi_gpu_trainner as multi_gpu_trainner
 from local_utils.log_util import init_logger
 from local_utils.config_utils import parse_config_utils
 
-LOG = init_logger.get_logger('train_sfnet_cityscapes')
-CFG = parse_config_utils.SFNET_CITYSCAPES_CFG
+LOG = init_logger.get_logger('train_resnetfcn_cityscapes')
+CFG = parse_config_utils.RESNET_FCN_CITYSCAPES_CFG
 
 
 def train_model():
@@ -24,10 +23,9 @@ def train_model():
     """
     if CFG.TRAIN.MULTI_GPU.ENABLE:
         LOG.info('Using multi gpu trainner ...')
-        worker = multi_gpu_trainner.SFNetCityScapesMultiTrainer(cfg=CFG)
+        worker = multi_gpu_trainner.ResNetFCNCityScapesMultiTrainer(cfg=CFG)
     else:
-        LOG.info('Using single gpu trainner ...')
-        worker = single_gpu_trainner.SFNetCityScapesTrainer(cfg=CFG)
+        raise NotImplementedError
 
     worker.train()
     return

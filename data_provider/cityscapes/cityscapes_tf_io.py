@@ -285,12 +285,12 @@ class _CityScapesTfReader(object):
                 )
                 if self._dataset_flags == 'train':
                     dataset = dataset.map(
-                        map_func=aug.preprocess_image_for_train,
+                        map_func=lambda x, y: aug.preprocess_image_for_train(x, y, self._cfg),
                         num_parallel_calls=self._cfg.DATASET.CPU_MULTI_PROCESS_NUMS
                     )
                 elif self._dataset_flags == 'val':
                     dataset = dataset.map(
-                        map_func=aug.preprocess_image_for_val,
+                        map_func=lambda x, y: aug.preprocess_image_for_val(x, y, self._cfg),
                         num_parallel_calls=self._cfg.DATASET.CPU_MULTI_PROCESS_NUMS
                     )
 
@@ -386,7 +386,7 @@ def main():
     [type]
         [description]
     """
-    io = CityScapesTfIO(cfg=parse_config_utils.CITYSCAPES_CFG)
+    io = CityScapesTfIO(cfg=parse_config_utils.RESNET_FCN_CITYSCAPES_CFG)
     src_images, label_images = io.train_dataset_reader.next_batch(batch_size=4)
     relu_ret = tf.nn.relu(src_images)
 

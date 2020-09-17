@@ -7,8 +7,8 @@ AUG:
     MAX_SCALE_FACTOR: 2.0  # for stepscaling
     MIN_SCALE_FACTOR: 0.75  # for stepscaling
     SCALE_STEP_SIZE: 0.25  # for stepscaling
-    TRAIN_CROP_SIZE: [512, 512]  # crop size for training
-    EVAL_CROP_SIZE: [512, 512]  # crop size for evaluating
+    TRAIN_CROP_SIZE: [720, 720]  # crop size for training
+    EVAL_CROP_SIZE: [720, 720]  # crop size for evaluating
     MIRROR: True
     FLIP: False
     FLIP_RATIO: 0.5
@@ -38,7 +38,7 @@ FREEZE:
     MODEL_FILENAME: 'model'
     PARAMS_FILENAME: 'params'
 MODEL:
-    MODEL_NAME: 'sfnet'
+    MODEL_NAME: 'resnet_fcn'
     RESNET:
         NET_SIZE: 101
 TEST:
