@@ -36,7 +36,7 @@ class SFNetCityScapesTrainer(object):
         """
         self._cfg = cfg
         # define solver params and dataset
-        self._cityscapes_io = cityscapes_tf_io.CityScapesTfIO()
+        self._cityscapes_io = cityscapes_tf_io.CityScapesTfIO(cfg=self._cfg)
         self._train_dataset = self._cityscapes_io.train_dataset_reader
         self._steps_per_epoch = len(self._train_dataset)
 

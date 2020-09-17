@@ -400,18 +400,21 @@ def main():
                 print('Iter: {:d}, cost time: {:.5f}s'.format(
                     count, time.time() - t_start))
                 count += 1
-                # src_image = np.array((images[0] + 1.0) * 127.5, dtype=np.uint8)
-                # print(labels[0].shape)
-                # color_mask_image = decode_inference_prediction(mask=labels[0])
-                #
-                # plt.figure('src')
-                # plt.imshow(src_image)
-                # plt.figure('label')
-                # plt.imshow(color_mask_image)
-                # plt.show()
+                src_image = np.array((images[0] + 1.0) * 127.5, dtype=np.uint8)
+                print(labels[0].shape)
+                color_mask_image = decode_inference_prediction(mask=labels[0])
+
+                plt.figure('src')
+                plt.imshow(src_image)
+                plt.figure('label')
+                plt.imshow(color_mask_image)
+                plt.show()
             except tf.errors.OutOfRangeError as err:
                 print(err)
 
 
 if __name__ == '__main__':
+    """
+    main func
+    """
     main()
