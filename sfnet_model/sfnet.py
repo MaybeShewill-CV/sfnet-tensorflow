@@ -131,8 +131,10 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
         # rescale x and y to [0, W-1/H-1]
         x = tf.cast(x, 'float32')
         y = tf.cast(y, 'float32')
-        x = 0.5 * ((x + 1.0) * tf.cast(max_x - 1, 'float32'))
-        y = 0.5 * ((y + 1.0) * tf.cast(max_y - 1, 'float32'))
+        # x = 0.5 * ((x + 1.0) * tf.cast(max_x - 1, 'float32'))
+        # y = 0.5 * ((y + 1.0) * tf.cast(max_y - 1, 'float32'))
+        x = 0.5 * ((x + 1.0) * tf.cast(max_x, 'float32'))
+        y = 0.5 * ((y + 1.0) * tf.cast(max_y, 'float32'))
 
         # grab 4 nearest corner points for each (x_i, y_i)
         x0 = tf.cast(tf.floor(x), 'int32')
