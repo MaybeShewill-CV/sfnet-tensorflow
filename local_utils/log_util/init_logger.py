@@ -15,7 +15,7 @@ import loguru
 
 from local_utils.config_utils import parse_config_utils
 
-CFG = parse_config_utils.CITYSCAPES_CFG
+CFG = parse_config_utils.SFNET_CITYSCAPES_CFG
 
 
 def get_logger(log_file_name_prefix):

@@ -16,8 +16,6 @@ import tensorflow as tf
 from sfnet_model import resnet_utils
 from local_utils.config_utils import parse_config_utils
 
-CFG = parse_config_utils.CITYSCAPES_CFG
-
 
 class ResNet(resnet_utils.ResnetBase):
     """
@@ -172,7 +170,7 @@ def main():
     """test code
     """
     image_tensor = tf.random.uniform([1, 720, 720, 3], name='input_tensor')
-    net = ResNet(phase='train', cfg=CFG)
+    net = ResNet(phase='train', cfg=parse_config_utils.RESNET_FCN_CITYSCAPES_CFG)
 
     result = net.inference(
         input_tensor=image_tensor,

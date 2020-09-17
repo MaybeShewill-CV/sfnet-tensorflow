@@ -16,8 +16,6 @@ import tensorflow as tf
 from local_utils.config_utils import parse_config_utils
 from sfnet_model import cnn_basenet, resnet
 
-CFG = parse_config_utils.CITYSCAPES_CFG
-
 
 class _FFModule(cnn_basenet.CNNBaseModel):
     """
@@ -679,7 +677,7 @@ def main():
     """
     input_tensor = tf.random.uniform([1, 512, 512, 3], name='input_tensor')
     label_tensor = tf.ones([1, 512, 512], name='input_tensor', dtype=tf.int32)
-    net = ResNetFCN(phase='train', cfg=CFG)
+    net = ResNetFCN(phase='train', cfg=parse_config_utils.RESNET_FCN_CITYSCAPES_CFG)
 
     loss_set = net.compute_loss(
         input_tensor=input_tensor,
