@@ -263,17 +263,7 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
             )
             # fuse features
             output = tf.add(input_tensor_low_origin, warpped_features, name='fam_output')
-            fused_output = self._conv_block(
-                input_tensor=output,
-                k_size=1,
-                output_channels=output_channels,
-                stride=1,
-                name='fam_fused_output',
-                padding=self._padding,
-                use_bias=False,
-                need_activate=True
-            )
-        return fused_output
+        return output
 
 
 class _PPModule(cnn_basenet.CNNBaseModel):

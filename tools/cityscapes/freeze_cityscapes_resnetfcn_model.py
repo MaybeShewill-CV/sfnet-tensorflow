@@ -15,10 +15,10 @@ import tensorflow as tf
 from tensorflow.python.framework import graph_util
 from tensorflow.python.tools import optimize_for_inference_lib
 
-from sfnet_model import sfnet
+from sfnet_model import resnet_fcn
 from local_utils.config_utils import parse_config_utils
 
-CFG = parse_config_utils.SFNET_CITYSCAPES_CFG
+CFG = parse_config_utils.RESNET_FCN_CITYSCAPES_CFG
 
 
 def init_args():
@@ -30,9 +30,9 @@ def init_args():
 
     parser.add_argument('--weights_path', type=str, help='The ckpt file path')
     parser.add_argument('--frozen_pb_file_path', type=str, help='The output frozen pb file path',
-                        default='./checkpoint/cityscapes/sfnet_cityscapes_frozen.pb')
+                        default='./checkpoint/cityscapes/resnetfcn_cityscapes_frozen.pb')
     parser.add_argument('--optimized_pb_file_path', type=str, help='The output frozen pb file path',
-                        default='./checkpoint/cityscapes/sfnet_cityscapes_optimized.pb')
+                        default='./checkpoint/cityscapes/resnetfcn_cityscapes_optimized.pb')
 
     return parser.parse_args()
 
@@ -45,7 +45,7 @@ def load_graph_from_ckpt_file(weights_path):
     """
     # construct compute graph
     input_tensor = tf.placeholder(dtype=tf.float32, shape=[1, 512, 512, 3], name='input_tensor')
-    net = sfnet.SFNet(phase='test', cfg=CFG)
+    net = resnet_fcn.ResNetFCN(phase='test', cfg=CFG)
     prediction = net.inference(
         input_tensor=input_tensor,
         name='SFNet',
@@ -122,13 +122,13 @@ if __name__ == '__main__':
     """
     args = init_args()
 
-    sfnet_gd, sfnet_sess, _ = load_graph_from_ckpt_file(args.weights_path)
+    resnetfcn_gd, resnetfcn_sess, _ = load_graph_from_ckpt_file(args.weights_path)
 
     os.makedirs(os.path.split(args.frozen_pb_file_path)[0], exist_ok=True)
     freeze_model(
         output_pb_file_path=args.frozen_pb_file_path,
-        sess=sfnet_sess,
-        graph_def=sfnet_gd
+        sess=resnetfcn_sess,
+        graph_def=resnetfcn_gd
     )
 
     # optimize_inference_model(
