@@ -11,12 +11,8 @@ augmentation util function
 import cv2
 import numpy as np
 
-from local_utils.config_utils import parse_config_utils
 
-CFG = parse_config_utils.CITYSCAPES_CFG
-
-
-def resize(img, grt=None, mode='train'):
+def resize(cfg, img, grt=None, mode='train'):
     """
     改变图像及标签图像尺寸
     AUG.AUG_METHOD为unpadding，所有模式均直接resize到AUG.FIX_RESIZE_SIZE的尺寸
@@ -32,25 +28,25 @@ def resize(img, grt=None, mode='train'):
         resize后的图像和标签图
     """
     mode = mode.lower()
-    if CFG.AUG.RESIZE_METHOD == 'unpadding':
-        target_size = (CFG.AUG.FIX_RESIZE_SIZE[0], CFG.AUG.FIX_RESIZE_SIZE[1])
+    if cfg.AUG.RESIZE_METHOD == 'unpadding':
+        target_size = (cfg.AUG.FIX_RESIZE_SIZE[0], cfg.AUG.FIX_RESIZE_SIZE[1])
         img = cv2.resize(img, target_size, interpolation=cv2.INTER_LINEAR)
         if grt is not None:
             grt = cv2.resize(grt, target_size, interpolation=cv2.INTER_NEAREST)
-    elif CFG.AUG.RESIZE_METHOD == 'stepscaling':
+    elif cfg.AUG.RESIZE_METHOD == 'stepscaling':
         if mode == 'train':
-            min_scale_factor = CFG.AUG.MIN_SCALE_FACTOR
-            max_scale_factor = CFG.AUG.MAX_SCALE_FACTOR
-            step_size = CFG.AUG.SCALE_STEP_SIZE
+            min_scale_factor = cfg.AUG.MIN_SCALE_FACTOR
+            max_scale_factor = cfg.AUG.MAX_SCALE_FACTOR
+            step_size = cfg.AUG.SCALE_STEP_SIZE
             scale_factor = get_random_scale(
                 min_scale_factor, max_scale_factor, step_size
             )
             img, grt = randomly_scale_image_and_label(
                 img, grt, scale=scale_factor
             )
-    elif CFG.AUG.RESIZE_METHOD == 'rangescaling':
-        min_resize_value = CFG.AUG.MIN_RESIZE_VALUE
-        max_resize_value = CFG.AUG.MAX_RESIZE_VALUE
+    elif cfg.AUG.RESIZE_METHOD == 'rangescaling':
+        min_resize_value = cfg.AUG.MIN_RESIZE_VALUE
+        max_resize_value = cfg.AUG.MAX_RESIZE_VALUE
         if mode == 'train':
             if min_resize_value == max_resize_value:
                 random_size = min_resize_value
@@ -58,7 +54,7 @@ def resize(img, grt=None, mode='train'):
                 random_size = int(
                     np.random.uniform(min_resize_value, max_resize_value) + 0.5)
         else:
-            random_size = CFG.AUG.INF_RESIZE_VALUE
+            random_size = cfg.AUG.INF_RESIZE_VALUE
 
         value = max(img.shape[0], img.shape[1])
         scale = float(random_size) / float(value)
@@ -73,7 +69,7 @@ def resize(img, grt=None, mode='train'):
                 interpolation=cv2.INTER_NEAREST
             )
     else:
-        raise Exception("Unexpect data augmention method: {}".format(CFG.AUG.AUG_METHOD))
+        raise Exception("Unexpect data augmention method: {}".format(cfg.AUG.AUG_METHOD))
 
     return img, grt
 
@@ -139,7 +135,7 @@ def randomly_scale_image_and_label(image, label=None, scale=1.0):
         return new_image
 
 
-def random_rotation(crop_img, crop_seg, rich_crop_max_rotation, mean_value):
+def random_rotation(crop_img, crop_seg, rich_crop_max_rotation, mean_value, cfg):
     """
     随机旋转图像和标签图
     Args：
@@ -150,7 +146,7 @@ def random_rotation(crop_img, crop_seg, rich_crop_max_rotation, mean_value):
     Returns：
         旋转后的图像和标签图
     """
-    ignore_index = CFG.DATASET.IGNORE_INDEX
+    ignore_index = cfg.DATASET.IGNORE_INDEX
     if rich_crop_max_rotation > 0:
         (h, w) = crop_img.shape[:2]
         do_rotation = np.random.uniform(
@@ -347,13 +343,14 @@ def hsv_color_jitter(crop_img,
     return crop_img
 
 
-def rand_crop(crop_img, crop_seg, mode='train'):
+def rand_crop(crop_img, crop_seg, cfg, mode='train'):
     """
     随机裁剪图片和标签图, 若crop尺寸大于原始尺寸，分别使用均值和ignore值填充再进行crop，
     crop尺寸与原始尺寸一致，返回原图，crop尺寸小于原始尺寸直接crop
     Args:
         crop_img(numpy.ndarray): 输入图像
         crop_seg(numpy.ndarray): 标签图
+        cfg:
         mode(string): 模式, 默认训练模式，验证或预测、可视化模式时crop尺寸需大于原始图片尺寸
     Returns：
         裁剪后的图片和标签图
@@ -363,11 +360,11 @@ def rand_crop(crop_img, crop_seg, mode='train'):
     img_width = crop_img.shape[1]
 
     if mode in ['train', 'validation']:
-        crop_width = CFG.AUG.TRAIN_CROP_SIZE[0]
-        crop_height = CFG.AUG.TRAIN_CROP_SIZE[1]
+        crop_width = cfg.AUG.TRAIN_CROP_SIZE[0]
+        crop_height = cfg.AUG.TRAIN_CROP_SIZE[1]
     else:
-        crop_width = CFG.AUG.EVAL_CROP_SIZE[0]
-        crop_height = CFG.AUG.EVAL_CROP_SIZE[1]
+        crop_width = cfg.AUG.EVAL_CROP_SIZE[0]
+        crop_height = cfg.AUG.EVAL_CROP_SIZE[1]
 
     if mode not in ['train', 'validation']:
         if crop_height < img_height or crop_width < img_width:
@@ -382,11 +379,11 @@ def rand_crop(crop_img, crop_seg, mode='train'):
         pad_width = max(crop_width - img_width, 0)
         if pad_height > 0 or pad_width > 0:
             crop_img = cv2.copyMakeBorder(
-                crop_img, 0, pad_height, 0, pad_width, cv2.BORDER_CONSTANT, value=CFG.DATASET.PADDING_VALUE
+                crop_img, 0, pad_height, 0, pad_width, cv2.BORDER_CONSTANT, value=cfg.DATASET.PADDING_VALUE
             )
             if crop_seg is not None:
                 crop_seg = cv2.copyMakeBorder(
-                    crop_seg, 0, pad_height, 0, pad_width, cv2.BORDER_CONSTANT, value=CFG.DATASET.IGNORE_INDEX
+                    crop_seg, 0, pad_height, 0, pad_width, cv2.BORDER_CONSTANT, value=cfg.DATASET.IGNORE_INDEX
                 )
             img_height = crop_img.shape[0]
             img_width = crop_img.shape[1]
@@ -403,23 +400,24 @@ def rand_crop(crop_img, crop_seg, mode='train'):
         return crop_img, crop_seg
 
 
-def rich_crop_image(img, grt):
+def rich_crop_image(img, grt, cfg):
     """
     rich crop image
     :param img:
     :param grt:
+    :param cfg:
     :return:
     """
-    if not CFG.AUG.RICH_CROP.ENABLE:
+    if not cfg.AUG.RICH_CROP.ENABLE:
         return img, grt
     # gaussian blur
-    if CFG.AUG.RICH_CROP.BLUR:
-        if CFG.AUG.RICH_CROP.BLUR_RATIO <= 0:
+    if cfg.AUG.RICH_CROP.BLUR:
+        if cfg.AUG.RICH_CROP.BLUR_RATIO <= 0:
             n = 0
-        elif CFG.AUG.RICH_CROP.BLUR_RATIO >= 1:
+        elif cfg.AUG.RICH_CROP.BLUR_RATIO >= 1:
             n = 1
         else:
-            n = int(1.0 / CFG.AUG.RICH_CROP.BLUR_RATIO)
+            n = int(1.0 / cfg.AUG.RICH_CROP.BLUR_RATIO)
         if n > 0:
             if np.random.randint(0, n) == 0:
                 radius = np.random.randint(3, 10)
@@ -432,39 +430,42 @@ def rich_crop_image(img, grt):
     img, grt = random_rotation(
         img,
         grt,
-        rich_crop_max_rotation=CFG.AUG.RICH_CROP.MAX_ROTATION,
-        mean_value=CFG.DATASET.PADDING_VALUE)
+        rich_crop_max_rotation=cfg.AUG.RICH_CROP.MAX_ROTATION,
+        mean_value=cfg.DATASET.PADDING_VALUE,
+        cfg=cfg
+    )
     # random scale
     img, grt = rand_scale_aspect(
         img,
         grt,
-        rich_crop_min_scale=CFG.AUG.RICH_CROP.MIN_AREA_RATIO,
-        rich_crop_aspect_ratio=CFG.AUG.RICH_CROP.ASPECT_RATIO)
+        rich_crop_min_scale=cfg.AUG.RICH_CROP.MIN_AREA_RATIO,
+        rich_crop_aspect_ratio=cfg.AUG.RICH_CROP.ASPECT_RATIO)
     # random hsv jitter
     img = hsv_color_jitter(
         img,
-        brightness_jitter_ratio=CFG.AUG.RICH_CROP.BRIGHTNESS_JITTER_RATIO,
-        saturation_jitter_ratio=CFG.AUG.RICH_CROP.SATURATION_JITTER_RATIO,
-        contrast_jitter_ratio=CFG.AUG.RICH_CROP.CONTRAST_JITTER_RATIO
+        brightness_jitter_ratio=cfg.AUG.RICH_CROP.BRIGHTNESS_JITTER_RATIO,
+        saturation_jitter_ratio=cfg.AUG.RICH_CROP.SATURATION_JITTER_RATIO,
+        contrast_jitter_ratio=cfg.AUG.RICH_CROP.CONTRAST_JITTER_RATIO
     )
 
     return img, grt
 
 
-def random_flip_image(img, grt):
+def random_flip_image(img, grt, cfg):
     """
 
     :param img:
     :param grt:
+    :param cfg:
     :return:
     """
-    if CFG.AUG.FLIP:
-        if CFG.AUG.FLIP_RATIO <= 0:
+    if cfg.AUG.FLIP:
+        if cfg.AUG.FLIP_RATIO <= 0:
             n = 0
-        elif CFG.AUG.FLIP_RATIO >= 1:
+        elif cfg.AUG.FLIP_RATIO >= 1:
             n = 1
         else:
-            n = int(1.0 / CFG.AUG.FLIP_RATIO)
+            n = int(1.0 / cfg.AUG.FLIP_RATIO)
         if n > 0:
             if np.random.randint(0, n) == 0:
                 img = img[::-1, :, :]
@@ -473,14 +474,15 @@ def random_flip_image(img, grt):
     return img, grt
 
 
-def random_mirror_image(img, grt):
+def random_mirror_image(img, grt, cfg):
     """
 
     :param img:
     :param grt:
+    :param cfg:
     :return:
     """
-    if CFG.AUG.MIRROR:
+    if cfg.AUG.MIRROR:
         if np.random.randint(0, 2) == 1:
             img = img[:, ::-1, :]
             grt = grt[:, ::-1]
@@ -488,43 +490,45 @@ def random_mirror_image(img, grt):
     return img, grt
 
 
-def normalize_image(img, grt):
+def normalize_image(img, grt, cfg):
     """
 
     :param img:
     :param grt:
+    :param cfg:
     :return:
     """
     # img = img.astype(np.float32)
     # img = img / 127.5 - 1.0
     img = img.astype('float32') / 255.0
-    img_mean = np.array(CFG.DATASET.MEAN_VALUE).reshape((1, 1, len(CFG.DATASET.MEAN_VALUE)))
-    img_std = np.array(CFG.DATASET.STD_VALUE).reshape((1, 1, len(CFG.DATASET.STD_VALUE)))
+    img_mean = np.array(cfg.DATASET.MEAN_VALUE).reshape((1, 1, len(cfg.DATASET.MEAN_VALUE)))
+    img_std = np.array(cfg.DATASET.STD_VALUE).reshape((1, 1, len(cfg.DATASET.STD_VALUE)))
     img -= img_mean
     img /= img_std
 
     return img, grt
 
 
-def preprocess_image(src_image, label_image):
+def preprocess_image(src_image, label_image, cfg):
     """
 
     :param src_image:
     :param label_image:
+    :param cfg:
     :return:
     """
     # resize image
-    src_image, label_image = resize(src_image, label_image)
+    src_image, label_image = resize(cfg, src_image, label_image)
     # random flip
-    src_image, label_image = random_flip_image(src_image, label_image)
+    src_image, label_image = random_flip_image(src_image, label_image, cfg=cfg)
     # random mirror
-    src_image, label_image = random_mirror_image(src_image, label_image)
+    src_image, label_image = random_mirror_image(src_image, label_image, cfg=cfg)
     # rich crop
-    src_image, label_image = rich_crop_image(src_image, label_image)
+    src_image, label_image = rich_crop_image(src_image, label_image, cfg=cfg)
     # random crop
-    src_image, label_image = rand_crop(src_image, label_image, 'train')
+    src_image, label_image = rand_crop(src_image, label_image, cfg=cfg, mode='train')
     # normalize image
-    src_image, label_image = normalize_image(src_image, label_image)
+    src_image, label_image = normalize_image(src_image, label_image, cfg=cfg)
     # cast image type
     src_image = src_image.astype(np.float32)
     label_image = label_image.astype(np.int32)
