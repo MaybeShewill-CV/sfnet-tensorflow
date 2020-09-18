@@ -240,12 +240,10 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
             mesh_grid_x = tf.linspace(-1.0, 1.0, low_width)
             mesh_grid_y = tf.linspace(-1.0, 1.0, low_height)
             sf_mesh_grid_x, sf_mesh_grid_y = tf.meshgrid(mesh_grid_x, mesh_grid_y)
-            # sf_field_x = sf_field[:, :, :, 0] / low_width
-            # sf_field_y = sf_field[:, :, :, 1] / low_height
             # sf_field_x = tf.nn.tanh(sf_field[:, :, :, 0])
             # sf_field_y = tf.nn.tanh(sf_field[:, :, :, 1])
-            sf_field_x = sf_field[:, :, :, 0]
-            sf_field_y = sf_field[:, :, :, 1]
+            sf_field_x = sf_field[:, :, :, 0] / low_width
+            sf_field_y = sf_field[:, :, :, 1] / low_height
             sf_mesh_grid_x_list = []
             sf_mesh_grid_y_list = []
             for i in range(batch_size):
@@ -264,8 +262,7 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
                 y=grid_sample_y
             )
             # fuse features
-            output = tf.add(input_tensor_low_origin, warpped_features,
-                            name='fam_output')
+            output = tf.add(input_tensor_low_origin, warpped_features, name='fam_output')
             fused_output = self._conv_block(
                 input_tensor=output,
                 k_size=1,
