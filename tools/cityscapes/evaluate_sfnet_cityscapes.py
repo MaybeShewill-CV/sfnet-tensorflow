@@ -141,12 +141,10 @@ class MultiScaleEvaluator(object):
         return graph
 
     @classmethod
-    def _prepare_image(cls, src_image, input_tensor_size, is_label=False):
+    def _prepare_image(cls, src_image):
         """
 
         :param src_image:
-        :param input_tensor_size:
-        :param is_label:
         :return:
         """
         # prepare input image
@@ -198,8 +196,6 @@ class MultiScaleEvaluator(object):
         # prepare image
         input_image = self._prepare_image(
             src_image=input_image,
-            input_tensor_size=self._input_tensor_size,
-            is_label=False
         )
         # run session
         probs_value = self._sess.run(
@@ -222,6 +218,7 @@ class MultiScaleEvaluator(object):
         :return:
         """
         final_probs = np.zeros(shape=(1024, 2048, self._class_nums), dtype=np.float32)
+        # src_label_image = cv2.resize(src_label_image, dsize=(1024, 512), interpolation=cv2.INTER_NEAREST)
         for scale in self._eval_scales:
             # scale image
             scaled_image, _ = aug.randomly_scale_image_and_label(
