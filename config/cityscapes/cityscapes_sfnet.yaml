@@ -41,6 +41,7 @@ MODEL:
     MODEL_NAME: 'sfnet'
     RESNET:
         NET_SIZE: 50
+        USE_DILATION: True
 TEST:
     TEST_MODEL: 'model/cityscapes/final'
 TRAIN:
