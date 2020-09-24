@@ -358,7 +358,7 @@ class ResnetBase(cnn_basenet.CNNBaseModel):
 
         return inputs
 
-    def _building_block_v1(self, input_tensor, strides, output_dims, name, projection_shortcut=None):
+    def _building_block_v1(self, input_tensor, stride, output_dims, name, projection_shortcut=None):
         """A single block for ResNet v1, without a bottleneck.
         Convolution then batch normalization then ReLU as described by:
           Deep Residual Learning for Image Recognition
@@ -370,7 +370,7 @@ class ResnetBase(cnn_basenet.CNNBaseModel):
           output_dims: The number of filters for the convolutions.
           projection_shortcut: The function to use for projection shortcuts
             (typically a 1x1 convolution when downsampling the input).
-          strides: The block's stride. If greater than 1, this block will ultimately
+          stride: The block's stride. If greater than 1, this block will ultimately
             downsample the input.
           name: the layer op name
         Returns:
@@ -388,7 +388,7 @@ class ResnetBase(cnn_basenet.CNNBaseModel):
                 )
 
             inputs = self._conv2d_fixed_padding(
-                inputs=input_tensor, output_dims=output_dims, kernel_size=3, strides=strides,
+                inputs=input_tensor, output_dims=output_dims, kernel_size=3, strides=stride,
                 name='conv_pad_1')
             inputs = self.layerbn(inputdata=inputs, is_training=self._is_training, name='bn_1')
             inputs = self.relu(inputs, name='relu_1')
