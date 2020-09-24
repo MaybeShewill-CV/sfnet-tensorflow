@@ -240,8 +240,10 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
             sf_mesh_grid_x, sf_mesh_grid_y = tf.meshgrid(mesh_grid_x, mesh_grid_y)
             # sf_field_x = tf.nn.tanh(sf_field[:, :, :, 0])
             # sf_field_y = tf.nn.tanh(sf_field[:, :, :, 1])
-            sf_field_x = sf_field[:, :, :, 0] / low_width
-            sf_field_y = sf_field[:, :, :, 1] / low_height
+            # sf_field_x = sf_field[:, :, :, 0] / low_width
+            # sf_field_y = sf_field[:, :, :, 1] / low_height
+            sf_field_x = sf_field[:, :, :, 0]
+            sf_field_y = sf_field[:, :, :, 1]
             sf_mesh_grid_x_list = []
             sf_mesh_grid_y_list = []
             for i in range(batch_size):
@@ -253,6 +255,9 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
             grid_sample_x = sf_mesh_grid_x + sf_field_x
             grid_sample_y = sf_mesh_grid_y + sf_field_y
 
+            grid_sample_x = tf.tanh(grid_sample_x, name='grid_sample_x')
+            grid_sample_y = tf.tanh(grid_sample_y, name='grid_sample_y')
+
             # warp features
             warpped_features = self._bilinear_sampler(
                 input_tensor=input_tensor_high,
@@ -260,7 +265,18 @@ class _FAMModule(cnn_basenet.CNNBaseModel):
                 y=grid_sample_y
             )
             # fuse features
-            output = tf.add(input_tensor_low_origin, warpped_features, name='fam_output')
+            output = tf.add(input_tensor_low_origin, warpped_features, name='fam_fused')
+            output = self._conv_block(
+                input_tensor=output,
+                k_size=1,
+                output_channels=output_channels,
+                stride=1,
+                name='fam_output',
+                padding=self._padding,
+                use_bias=False,
+                need_activate=True
+            )
+
         return output
 
 
@@ -356,7 +372,7 @@ class _PPModule(cnn_basenet.CNNBaseModel):
                     size=(in_height, in_width),
                     name='ppm_pool_size_{:d}_upsample'.format(output_pool_size)
                 )
-                ppm_features.append(ppm_feature + input_tensor)
+                ppm_features.append(ppm_feature)
 
             output_tensor = tf.concat(ppm_features, axis=-1, name='ppm_concate')
             output_tensor = self._conv_block(
@@ -557,7 +573,7 @@ class SFNet(cnn_basenet.CNNBaseModel):
         return loss
 
     @classmethod
-    def _compute_ohem_cross_entropy_loss(cls, seg_logits, labels, class_nums, name, thresh, n_min):
+    def _compute_ohem_cross_entropy_loss(cls, seg_logits, labels, class_nums, name, n_min):
         """
 
         :param seg_logits:
@@ -589,14 +605,16 @@ class SFNet(cnn_basenet.CNNBaseModel):
             loss, _ = tf.nn.top_k(loss, tf.size(loss), sorted=True)
 
             # apply ohem
-            ohem_thresh = tf.multiply(-1.0, tf.math.log(thresh), name='ohem_score_thresh')
-            ohem_cond = tf.greater(loss[n_min], ohem_thresh)
-            loss_select = tf.cond(
-                pred=ohem_cond,
-                true_fn=lambda: tf.gather(loss, tf.squeeze(tf.where(tf.greater(loss, ohem_thresh)), 1)),
-                false_fn=lambda: loss[:n_min]
-            )
-            loss_value = tf.reduce_mean(loss_select, name='ohem_cross_entropy_loss')
+            # ohem_thresh = tf.multiply(-1.0, tf.math.log(thresh), name='ohem_score_thresh')
+            # ohem_cond = tf.greater(loss[n_min], ohem_thresh)
+            # loss_select = tf.cond(
+            #     pred=ohem_cond,
+            #     true_fn=lambda: tf.gather(loss, tf.squeeze(tf.where(tf.greater(loss, ohem_thresh)), 1)),
+            #     false_fn=lambda: loss[:n_min]
+            # )
+            # loss_value = tf.reduce_mean(loss_select, name='ohem_cross_entropy_loss')
+
+            loss_value = tf.reduce_mean(loss[:n_min], name='ohem_cross_entropy_loss')
         return loss_value
 
     @classmethod
@@ -783,7 +801,6 @@ class SFNet(cnn_basenet.CNNBaseModel):
                             labels=label_tensor,
                             class_nums=self._class_nums,
                             name=loss_stage_name,
-                            thresh=self._ohem_score_thresh,
                             n_min=self._ohem_min_sample_nums
                         )
                 else:
