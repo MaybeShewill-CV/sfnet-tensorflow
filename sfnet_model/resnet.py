@@ -40,7 +40,7 @@ class ResNet(resnet_utils.ResnetBase):
         self._classes_nums = self._cfg.DATASET.NUM_CLASSES
         self._separate_index = 2
         if self._resnet_size < 50:
-            self._block_func = self._building_block_v1
+            self._block_func = self._bottleneck_block_v1
             self._block_fn_with_dilation = self._bottleneck_block_v1_with_dilation
         else:
             self._block_func = self._bottleneck_block_v1
