@@ -93,15 +93,15 @@ class ResnetBase(cnn_basenet.CNNBaseModel):
         :return:
         """
         with tf.variable_scope(name_or_scope=name):
-            if strides > 1:
-                inputs = self._fixed_padding(inputs, kernel_size, name='fix_padding')
+            # if strides > 1:
+            #     inputs = self._fixed_padding(inputs, kernel_size, name='fix_padding')
 
             result = self.dilation_conv(
                 input_tensor=inputs,
                 k_size=kernel_size,
                 out_dims=output_dims,
                 rate=dilation_rate,
-                padding=('SAME' if strides == 1 else 'VALID'),
+                padding='SAME',
                 use_bias=False,
                 name='dilated_conv'
             )

@@ -28,26 +28,34 @@ class ResNet(resnet_utils.ResnetBase):
         :param phase: phase of training or testing
         """
         super(ResNet, self).__init__(phase=phase)
-        if phase.lower() == 'train':
-            self._phase = tf.constant('train', dtype=tf.string)
-        else:
-            self._phase = tf.constant('test', dtype=tf.string)
-        self._is_training = self._init_phase()
-        self._resnet_size = cfg.MODEL.RESNET.NET_SIZE
+
+        self._phase = phase
+        self._cfg = cfg
+        self._is_training = self._is_net_for_training()
+        self._resnet_size = self._cfg.MODEL.RESNET.NET_SIZE
         self._block_sizes = self._get_block_sizes()
         self._block_strides = [1, 2, 2, 2]
-        self._classes_nums = cfg.DATASET.NUM_CLASSES
+        self._use_dilation = self._cfg.MODEL.RESNET.USE_DILATION
+        self._dilation_rates = [1, 1, 2, 4]
+        self._classes_nums = self._cfg.DATASET.NUM_CLASSES
+        self._separate_index = 2
         if self._resnet_size < 50:
             self._block_func = self._building_block_v1
+            self._block_fn_with_dilation = self._bottleneck_block_v1_with_dilation
         else:
             self._block_func = self._bottleneck_block_v1
+            self._block_fn_with_dilation = self._bottleneck_block_v1_with_dilation
 
-    def _init_phase(self):
+    def _is_net_for_training(self):
         """
-        init tensorflow bool flag
+        if the net is used for training or not
         :return:
         """
-        return tf.equal(self._phase, tf.constant('train', dtype=tf.string))
+        if isinstance(self._phase, tf.Tensor):
+            phase = self._phase
+        else:
+            phase = tf.constant(self._phase, dtype=tf.string)
+        return tf.equal(phase, tf.constant('train', dtype=tf.string))
 
     def _get_block_sizes(self):
         """
@@ -93,13 +101,16 @@ class ResNet(resnet_utils.ResnetBase):
 
         return inputs
 
-    def _resnet_block_layer(self, input_tensor, stride, block_nums, output_dims, name):
+    def _resnet_block_layer(self, input_tensor, stride, block_nums, output_dims, name,
+                            use_dilation=False, dilation_rate=2):
         """
         resnet single block.Details can be found in origin paper table 1
         :param input_tensor: input tensor [batch_size, h, w, c]
         :param stride: the conv stride in bottleneck conv_2 op
         :param block_nums: block repeat nums
         :param name: layer name
+        :param use_dilation:
+        :param dilation_rate:
         :return:
         """
         def projection_shortcut(_inputs):
@@ -111,6 +122,7 @@ class ResNet(resnet_utils.ResnetBase):
             return self._conv2d_fixed_padding(
                 inputs=_inputs, output_dims=output_dims * 4, kernel_size=1,
                 strides=stride, name='projection_shortcut')
+
         vars_scope = tf.variable_scope(name_or_scope=name)
         with vars_scope:
             inputs = self._block_func(
@@ -120,14 +132,25 @@ class ResNet(resnet_utils.ResnetBase):
                 stride=stride,
                 name='init_block_fn'
             )
-            for index in range(1, block_nums):
-                inputs = self._block_func(
-                    input_tensor=inputs,
-                    output_dims=output_dims,
-                    projection_shortcut=None,
-                    stride=1,
-                    name='block_fn_{:d}'.format(index)
-                )
+            if not use_dilation:
+                for index in range(1, block_nums):
+                    inputs = self._block_func(
+                        input_tensor=inputs,
+                        output_dims=output_dims,
+                        projection_shortcut=None,
+                        stride=1,
+                        name='block_fn_{:d}'.format(index)
+                    )
+            else:
+                for index in range(1, block_nums):
+                    inputs = self._block_fn_with_dilation(
+                        input_tensor=inputs,
+                        output_dims=output_dims,
+                        projection_shortcut=None,
+                        stride=1,
+                        name='block_fn_{:d}'.format(index),
+                        dilation_rate=dilation_rate
+                    )
 
         return inputs
 
@@ -146,20 +169,31 @@ class ResNet(resnet_utils.ResnetBase):
                 input_image_tensor=input_tensor,
                 kernel_size=7,
                 conv_stride=2,
-                output_dims=32,
+                output_dims=64,
                 pool_size=3,
                 pool_stride=2
             )
 
             # The first two layers doesn't not need apply dilation
             for index, block_nums in enumerate(self._block_sizes):
-                output_dims = 32 * (2 ** index)
+                output_dims = 64 * (2 ** index)
+                if self._use_dilation:
+                    if index < self._separate_index:
+                        use_dilation = False
+                    else:
+                        use_dilation = True
+                else:
+                    use_dilation = False
+
+                dilation_rate = self._dilation_rates[index]
                 inputs = self._resnet_block_layer(
                     input_tensor=inputs,
                     stride=self._block_strides[index],
                     block_nums=block_nums,
                     output_dims=output_dims,
-                    name='residual_block_{:d}'.format(index + 1)
+                    name='residual_block_{:d}'.format(index + 1),
+                    use_dilation=use_dilation,
+                    dilation_rate=dilation_rate
                 )
                 intermedia_result['stage_{:d}'.format(index + 1)] = inputs
 
