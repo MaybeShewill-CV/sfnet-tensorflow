@@ -40,7 +40,7 @@ FREEZE:
 MODEL:
     MODEL_NAME: 'sfnet'
     RESNET:
-        NET_SIZE: 50
+        NET_SIZE: 18
         USE_DILATION: True
 TEST:
     TEST_MODEL: 'model/cityscapes/final'
