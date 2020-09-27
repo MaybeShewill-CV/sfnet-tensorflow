@@ -386,7 +386,7 @@ def main():
     [type]
         [description]
     """
-    io = CityScapesTfIO(cfg=parse_config_utils.RESNET_FCN_CITYSCAPES_CFG)
+    io = CityScapesTfIO(cfg=parse_config_utils.SFNET_CITYSCAPES_CFG)
     src_images, label_images = io.train_dataset_reader.next_batch(batch_size=4)
     relu_ret = tf.nn.relu(src_images)
 
