@@ -777,16 +777,20 @@ class SFNet(cnn_basenet.CNNBaseModel):
             segment_loss = tf.constant(0.0, tf.float32)
             for stage_name, seg_logits in net_seg_logits.items():
                 loss_stage_name = '{:s}_segmentation_loss'.format(stage_name)
+                if stage_name == 'final_stage':
+                    alpha = 1.0
+                else:
+                    alpha = 0.4
                 if self._loss_type == 'cross_entropy':
                     if not self._enable_ohem:
-                        segment_loss += self._compute_cross_entropy_loss(
+                        segment_loss += alpha * self._compute_cross_entropy_loss(
                             seg_logits=seg_logits,
                             labels=label_tensor,
                             class_nums=self._class_nums,
                             name=loss_stage_name
                         )
                     else:
-                        segment_loss += self._compute_ohem_cross_entropy_loss(
+                        segment_loss += alpha * self._compute_ohem_cross_entropy_loss(
                             seg_logits=seg_logits,
                             labels=label_tensor,
                             class_nums=self._class_nums,

@@ -176,7 +176,7 @@ class ResNet(resnet_utils.ResnetBase):
 
             # The first two layers doesn't not need apply dilation
             for index, block_nums in enumerate(self._block_sizes):
-                output_dims = 64 * (2 ** index)
+                output_dims = 32 * (2 ** index)
                 if self._use_dilation:
                     if index < self._separate_index:
                         use_dilation = False
