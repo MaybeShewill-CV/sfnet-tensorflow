@@ -40,7 +40,10 @@ class SFNetCityScapesTrainer(object):
         self._train_dataset = self._cityscapes_io.train_dataset_reader
         self._steps_per_epoch = len(self._train_dataset)
 
-        self._model_name = self._cfg.MODEL.MODEL_NAME
+        self._model_name = '{:s}_{:s}'.format(
+            self._cfg.MODEL.MODEL_NAME,
+            'resnet-{:d}'.format(self._cfg.MODEL.RESNET.NET_SIZE)
+        )
 
         self._train_epoch_nums = self._cfg.TRAIN.EPOCH_NUMS
         self._batch_size = self._cfg.TRAIN.BATCH_SIZE
