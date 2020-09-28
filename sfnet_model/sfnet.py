@@ -771,7 +771,7 @@ class SFNet(cnn_basenet.CNNBaseModel):
             net_seg_logits = self.build_model(
                 input_tensor=input_tensor,
                 reuse=reuse,
-                prepare_data_for_booster=True
+                prepare_data_for_booster=self._use_boost_seg_head
             )
             # compute network loss
             segment_loss = tf.constant(0.0, tf.float32)
