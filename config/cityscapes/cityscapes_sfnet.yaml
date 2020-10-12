@@ -7,8 +7,8 @@ AUG:
     MAX_SCALE_FACTOR: 2.0  # for stepscaling
     MIN_SCALE_FACTOR: 0.75  # for stepscaling
     SCALE_STEP_SIZE: 0.25  # for stepscaling
-    TRAIN_CROP_SIZE: [512, 512]  # crop size for training
-    EVAL_CROP_SIZE: [512, 512]  # crop size for evaluating
+    TRAIN_CROP_SIZE: [1024, 512]  # crop size for training
+    EVAL_CROP_SIZE: [1024, 512]  # crop size for evaluating
     MIRROR: True
     FLIP: False
     FLIP_RATIO: 0.5
@@ -40,8 +40,8 @@ FREEZE:
 MODEL:
     MODEL_NAME: 'sfnet'
     RESNET:
-        NET_SIZE: 18
-        USE_DILATION: True
+        NET_SIZE: 101
+        USE_DILATION: False
 TEST:
     TEST_MODEL: 'model/cityscapes/final'
 TRAIN:
@@ -52,7 +52,7 @@ TRAIN:
         ENABLE: False
         SNAPSHOT_PATH: ''
     SNAPSHOT_EPOCH: 8
-    BATCH_SIZE: 8
+    BATCH_SIZE: 4
     VAL_BATCH_SIZE: 2
     EPOCH_NUMS: 513
     WARM_UP:
@@ -77,11 +77,11 @@ SOLVER:
     MOVING_AVE_DECAY: 0.9995
     LOSS_TYPE: 'cross_entropy'
     OHEM:
-        ENABLE: True
+        ENABLE: False
         SCORE_THRESH: 0.35
         MIN_SAMPLE_NUMS: 65536
     BOOST_SEG_HEAD:
-        ENABLE: True
+        ENABLE: False
 GPU:
     GPU_MEMORY_FRACTION: 0.9
     TF_ALLOW_GROWTH: True
